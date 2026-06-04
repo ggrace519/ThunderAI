@@ -19,6 +19,8 @@
 // Some original methods derived from https://github.com/ali-raheem/Aify/blob/4ece286095ea7a6cf89d696902e6b81b5d1c3a4b/plugin/html/API.js
 
 
+import { fetchWithTimeout } from './fetch-utils.js';
+
 export class Anthropic {
 
   apiKey = '';
@@ -53,7 +55,7 @@ export class Anthropic {
 
   fetchModels = async () => {
     try{
-      const response = await fetch("https://api.anthropic.com/v1/models", {
+      const response = await fetchWithTimeout("https://api.anthropic.com/v1/models", {
           method: "GET",
           headers: {
               "Content-Type": "application/json",
@@ -112,7 +114,7 @@ export class Anthropic {
 
       // console.log(">>>>>>>>>>>>>>>>> [ThunderAI] Anthropic API request: " + JSON.stringify(claude_body));
 
-      const response = await fetch("https://api.anthropic.com/v1/messages", {
+      const response = await fetchWithTimeout("https://api.anthropic.com/v1/messages", {
           method: "POST",
           headers: { 
               "Content-Type": "application/json", 

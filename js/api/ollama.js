@@ -17,6 +17,8 @@
  */
 
 
+import { fetchWithTimeout } from './fetch-utils.js';
+
 export class Ollama {
     host = '';
     model = '';
@@ -46,7 +48,7 @@ export class Ollama {
 
     fetchModels = async () => {
       try{
-        const response = await fetch(this.host + "/api/tags", {
+        const response = await fetchWithTimeout(this.host + "/api/tags", {
             method: "GET",
             headers: {
                 "Content-Type": "application/json"
@@ -86,7 +88,7 @@ export class Ollama {
       try {
         const tempFloat = parseFloat(this.temperature);
         //console.log(">>>>>>>>>>  messages: " +JSON.stringify(messages));
-        const response = await fetch(this.host + "/api/chat", {
+        const response = await fetchWithTimeout(this.host + "/api/chat", {
             method: "POST",
             headers: { 
                 "Content-Type": "application/json", 

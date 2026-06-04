@@ -19,6 +19,8 @@
 // Some original methods derived from https://github.com/ali-raheem/Aify/blob/4ece286095ea7a6cf89d696902e6b81b5d1c3a4b/plugin/html/API.js
 
 
+import { fetchWithTimeout } from './fetch-utils.js';
+
 export class OpenAI {
 
   apiKey = '';
@@ -47,7 +49,7 @@ export class OpenAI {
 
   fetchModels = async () => {
     try{
-      const response = await fetch("https://api.openai.com/v1/models", {
+      const response = await fetchWithTimeout("https://api.openai.com/v1/models", {
           method: "GET",
           headers: {
               "Content-Type": "application/json",
@@ -107,7 +109,7 @@ export class OpenAI {
     // console.log(">>>>>>>>>>> OpenAI API request: " + JSON.stringify(messages));
 
     try {
-      const response = await fetch("https://api.openai.com/v1/responses", {
+      const response = await fetchWithTimeout("https://api.openai.com/v1/responses", {
           method: "POST",
           headers: { 
               "Content-Type": "application/json", 

@@ -19,6 +19,8 @@
 // Some original methods derived from https://github.com/ali-raheem/Aify/blob/4ece286095ea7a6cf89d696902e6b81b5d1c3a4b/plugin/html/API.js
 
 
+import { fetchWithTimeout } from './fetch-utils.js';
+
 export class OpenAIComp {
 
   host = '';
@@ -56,7 +58,7 @@ export class OpenAIComp {
       curr_headers['X-Title'] = 'ThunderAI';
     }
 
-    const response = await fetch(this.host + (this.use_v1 ? "/v1" : "") + "/models", {
+    const response = await fetchWithTimeout(this.host + (this.use_v1 ? "/v1" : "") + "/models", {
         method: "GET",
         headers: curr_headers,
     });
@@ -88,7 +90,7 @@ export class OpenAIComp {
       if(this.apiKey !== '') curr_headers["Authorization"] = "Bearer "+ this.apiKey;
 
       try {
-        const response = await fetch(this.host + (this.use_v1 ? "/v1" : "") + "/chat/completions", {
+        const response = await fetchWithTimeout(this.host + (this.use_v1 ? "/v1" : "") + "/chat/completions", {
             method: "POST",
             headers: curr_headers,
             body: JSON.stringify({ 

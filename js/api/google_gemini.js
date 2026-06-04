@@ -18,6 +18,8 @@
 
 
 
+import { fetchWithTimeout } from './fetch-utils.js';
+
 export class GoogleGemini {
 
   apiKey = '';
@@ -52,7 +54,7 @@ export class GoogleGemini {
 
   fetchModels = async () => {
     try{
-      const response = await fetch("https://generativelanguage.googleapis.com/v1beta/models?key=" + this.apiKey, {
+      const response = await fetchWithTimeout("https://generativelanguage.googleapis.com/v1beta/models?key=" + this.apiKey, {
           method: "GET",
           headers: {
               "Content-Type": "application/json"
@@ -118,7 +120,7 @@ export class GoogleGemini {
 
       //  console.log(">>>>>>>>>>>>>>>>> [ThunderAI] Google Gemini API request: " + JSON.stringify(google_gemini_body));
 
-      const response = await fetch("https://generativelanguage.googleapis.com/v1beta/models/" + this.model + ":" + (this.stream ? 'streamGenerateContent?alt=sse&' : 'generateContent?') + "key=" + this.apiKey, {
+      const response = await fetchWithTimeout("https://generativelanguage.googleapis.com/v1beta/models/" + this.model + ":" + (this.stream ? 'streamGenerateContent?alt=sse&' : 'generateContent?') + "key=" + this.apiKey, {
           method: "POST",
           headers: { 
               "Content-Type": "application/json"
