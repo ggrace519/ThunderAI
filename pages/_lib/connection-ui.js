@@ -236,8 +236,8 @@ export async function injectConnectionUI({
   </tr>
   <tr class="conntype_chatgpt_api${tr_class ? ` ${tr_class}` : ''}">
     <td colspan="2" style="padding:0px 2em;text-align:center;">
-      <button id="${modelId_prefix ? `${modelId_prefix}` : ''}btnTestChatGPTAPI" class="btn_test_api">__MSG_API_Test_Connection__</button>
-      <div id="${modelId_prefix ? `${modelId_prefix}` : ''}chatgpt_api_test_result" class="api_test_result" style="display:none;"></div>
+      <button id="${modelId_prefix ? `${modelId_prefix}` : ''}btnTestChatGPTAPI" type="button" class="btn_test_api">__MSG_API_Test_Connection__</button>
+      <div id="${modelId_prefix ? `${modelId_prefix}` : ''}chatgpt_api_test_result" class="api_test_result" role="status" aria-live="polite" style="display:none;"></div>
     </td>
   </tr>
   <tr class="conntype_google_gemini_api${tr_class ? ` ${tr_class}` : ''}">
@@ -308,8 +308,8 @@ export async function injectConnectionUI({
   </tr>
   <tr class="conntype_google_gemini_api${tr_class ? ` ${tr_class}` : ''}">
     <td colspan="2" style="padding:0px 2em;text-align:center;">
-      <button id="${modelId_prefix ? `${modelId_prefix}` : ''}btnTestGoogleGeminiAPI" class="btn_test_api">__MSG_API_Test_Connection__</button>
-      <div id="${modelId_prefix ? `${modelId_prefix}` : ''}google_gemini_api_test_result" class="api_test_result" style="display:none;"></div>
+      <button id="${modelId_prefix ? `${modelId_prefix}` : ''}btnTestGoogleGeminiAPI" type="button" class="btn_test_api">__MSG_API_Test_Connection__</button>
+      <div id="${modelId_prefix ? `${modelId_prefix}` : ''}google_gemini_api_test_result" class="api_test_result" role="status" aria-live="polite" style="display:none;"></div>
     </td>
   </tr>
   <tr class="conntype_ollama_api${tr_class ? ` ${tr_class}` : ''}">
@@ -393,8 +393,8 @@ export async function injectConnectionUI({
   </tr>
   <tr class="conntype_ollama_api${tr_class ? ` ${tr_class}` : ''}">
     <td colspan="2" style="padding:0px 2em;text-align:center;">
-      <button id="${modelId_prefix ? `${modelId_prefix}` : ''}btnTestOllamaAPI" class="btn_test_api">__MSG_API_Test_Connection__</button>
-      <div id="${modelId_prefix ? `${modelId_prefix}` : ''}ollama_api_test_result" class="api_test_result" style="display:none;"></div>
+      <button id="${modelId_prefix ? `${modelId_prefix}` : ''}btnTestOllamaAPI" type="button" class="btn_test_api">__MSG_API_Test_Connection__</button>
+      <div id="${modelId_prefix ? `${modelId_prefix}` : ''}ollama_api_test_result" class="api_test_result" role="status" aria-live="polite" style="display:none;"></div>
     </td>
   </tr>
   <tr class="conntype_openai_comp_api${tr_class ? ` ${tr_class}` : ''}">
@@ -495,8 +495,8 @@ export async function injectConnectionUI({
   </tr>
   <tr class="conntype_openai_comp_api${tr_class ? ` ${tr_class}` : ''}">
     <td colspan="2" style="padding:0px 2em;text-align:center;">
-      <button id="${modelId_prefix ? `${modelId_prefix}` : ''}btnTestOpenAICompAPI" class="btn_test_api">__MSG_API_Test_Connection__</button>
-      <div id="${modelId_prefix ? `${modelId_prefix}` : ''}openai_comp_api_test_result" class="api_test_result" style="display:none;"></div>
+      <button id="${modelId_prefix ? `${modelId_prefix}` : ''}btnTestOpenAICompAPI" type="button" class="btn_test_api">__MSG_API_Test_Connection__</button>
+      <div id="${modelId_prefix ? `${modelId_prefix}` : ''}openai_comp_api_test_result" class="api_test_result" role="status" aria-live="polite" style="display:none;"></div>
     </td>
   </tr>
   <tr class="conntype_anthropic_api${tr_class ? ` ${tr_class}` : ''}">
@@ -584,8 +584,8 @@ export async function injectConnectionUI({
   </tr>
   <tr class="conntype_anthropic_api${tr_class ? ` ${tr_class}` : ''}">
     <td colspan="2" style="padding:0px 2em;text-align:center;">
-      <button id="${modelId_prefix ? `${modelId_prefix}` : ''}btnTestAnthropicAPI" class="btn_test_api">__MSG_API_Test_Connection__</button>
-      <div id="${modelId_prefix ? `${modelId_prefix}` : ''}anthropic_api_test_result" class="api_test_result" style="display:none;"></div>
+      <button id="${modelId_prefix ? `${modelId_prefix}` : ''}btnTestAnthropicAPI" type="button" class="btn_test_api">__MSG_API_Test_Connection__</button>
+      <div id="${modelId_prefix ? `${modelId_prefix}` : ''}anthropic_api_test_result" class="api_test_result" role="status" aria-live="polite" style="display:none;"></div>
     </td>
   </tr>
   `;
