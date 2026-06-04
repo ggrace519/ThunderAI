@@ -16,7 +16,7 @@ describe('buildLeanSource', () => {
     expect(out).toContain('Reply-To: attacker@evil.test');
   });
 
-  it('includes decoded text and html body parts', () => {
+  it('includes only the HTML body when both alternatives exist (no duplication)', () => {
     const full = {
       contentType: 'multipart/alternative',
       parts: [
@@ -25,10 +25,24 @@ describe('buildLeanSource', () => {
       ],
     };
     const out = buildLeanSource(HEADERS, full);
-    expect(out).toContain('--- body (text/plain) ---');
-    expect(out).toContain('Click http://evil.test to verify');
+    // HTML is preferred (exposes the real link target)...
     expect(out).toContain('--- body (text/html) ---');
     expect(out).toContain('href="http://evil.test"');
+    // ...and the redundant plain-text alternative is NOT included.
+    expect(out).not.toContain('--- body (text/plain) ---');
+    expect(out).not.toContain('Click http://evil.test to verify');
+  });
+
+  it('falls back to plain text when there is no HTML part', () => {
+    const full = {
+      contentType: 'multipart/mixed',
+      parts: [
+        { contentType: 'text/plain', body: 'plain only body' },
+      ],
+    };
+    const out = buildLeanSource(HEADERS, full);
+    expect(out).toContain('--- body (text/plain) ---');
+    expect(out).toContain('plain only body');
   });
 
   it('lists attachments as metadata only and omits their payload', () => {

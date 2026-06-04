@@ -257,7 +257,8 @@ export async function getMailBody(fullMessage, messageId) {
 // Pure function: headerBlock is the raw top-of-message header block; fullMessage
 // is the object returned by browser.messages.getFull().
 export function buildLeanSource(headerBlock, fullMessage) {
-  const textSections = [];
+  const htmlParts = [];
+  const plainParts = [];
   const attachments = [];
 
   function processPart(part) {
@@ -266,8 +267,10 @@ export function buildLeanSource(headerBlock, fullMessage) {
       part.parts.forEach(processPart);
       return;
     }
-    if (part.contentType && part.contentType.startsWith("text/")) {
-      if (part.body) textSections.push({ type: part.contentType, body: part.body });
+    if (part.contentType === "text/html") {
+      if (part.body) htmlParts.push(part.body);
+    } else if (part.contentType && part.contentType.startsWith("text/")) {
+      if (part.body) plainParts.push(part.body);
     } else if (part.contentType && !part.contentType.startsWith("multipart/")) {
       // Non-text leaf (attachment or inline resource): keep metadata only.
       attachments.push({ name: part.name || "(unnamed)", type: part.contentType, size: part.size });
@@ -275,9 +278,16 @@ export function buildLeanSource(headerBlock, fullMessage) {
   }
   processPart(fullMessage);
 
+  // Most messages carry the same content as both text/plain and text/html
+  // (multipart/alternative). Include only ONE body to avoid sending the email
+  // twice: prefer HTML (it exposes the real link targets a safety check needs),
+  // fall back to plain text when there is no HTML part.
+  const bodyType = htmlParts.length > 0 ? "text/html" : "text/plain";
+  const bodyParts = htmlParts.length > 0 ? htmlParts : plainParts;
+
   let out = (headerBlock || "").trim();
-  for (const sec of textSections) {
-    out += "\n\n--- body (" + sec.type + ") ---\n" + String(sec.body).trim();
+  for (const body of bodyParts) {
+    out += "\n\n--- body (" + bodyType + ") ---\n" + String(body).trim();
   }
   if (attachments.length > 0) {
     out += "\n\n--- attachments (content omitted) ---";
