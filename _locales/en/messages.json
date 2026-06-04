@@ -656,6 +656,10 @@
     "message": "HTML mail body",
     "description": ""
   },
+  "placeholder_mail_raw_source": {
+    "message": "Full raw mail source (headers + body)",
+    "description": "Placeholder that inserts the complete RFC822 source of the email, including headers"
+  },
   "placeholder_mail_subject": {
     "message": "Mail subject",
     "description": ""

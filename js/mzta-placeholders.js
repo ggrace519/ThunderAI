@@ -74,6 +74,14 @@ const defaultPlaceholders = [
         enabled: 1,
     },
     {
+        id: 'mail_raw_source',
+        name: "__MSG_placeholder_mail_raw_source__",
+        default_value: "",
+        type: 1,
+        is_default: "1",
+        enabled: 1,
+    },
+    {
         id: 'mail_typed_text',
         name: "__MSG_placeholder_mail_typed_text__",
         default_value: "",
@@ -558,6 +566,20 @@ export const placeholdersUtils = {
                     break;
                 case 'mail_html_body':
                     finalSubs['mail_html_body'] = placeholdersUtils.failSafePlaceholders(msg_text?.html);
+                    break;
+                case 'mail_raw_source':
+                    // Full RFC822 source (headers + Received chain + raw body) — needed
+                    // for safety/phishing checks that must see more than the rendered body.
+                    let raw_source = '';
+                    try {
+                        if(curr_message && curr_message.id != null){
+                            raw_source = await browser.messages.getRaw(curr_message.id);
+                        }
+                    } catch (e) {
+                        // getRaw is unavailable when composing or if the message has no id;
+                        // degrade gracefully to an empty value rather than failing the prompt.
+                    }
+                    finalSubs['mail_raw_source'] = placeholdersUtils.failSafePlaceholders(raw_source);
                     break;
                 case 'mail_typed_text':
                     finalSubs['mail_typed_text'] = placeholdersUtils.failSafePlaceholders(only_typed_text);
