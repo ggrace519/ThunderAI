@@ -250,6 +250,64 @@ export async function getMailBody(fullMessage, messageId) {
   return {text, html};
 }
 
+// Builds a lean "full source" view of a message for analysis / safety checks:
+// the complete header block plus the decoded text/HTML body parts and
+// attachment metadata — WITHOUT the large base64 attachment / inline-image
+// payloads that bloat the raw RFC822 source (and blow past max_prompt_length).
+// Pure function: headerBlock is the raw top-of-message header block; fullMessage
+// is the object returned by browser.messages.getFull().
+export function buildLeanSource(headerBlock, fullMessage) {
+  const textSections = [];
+  const attachments = [];
+
+  function processPart(part) {
+    if (!part) return;
+    if (part.parts && part.parts.length > 0) {
+      part.parts.forEach(processPart);
+      return;
+    }
+    if (part.contentType && part.contentType.startsWith("text/")) {
+      if (part.body) textSections.push({ type: part.contentType, body: part.body });
+    } else if (part.contentType && !part.contentType.startsWith("multipart/")) {
+      // Non-text leaf (attachment or inline resource): keep metadata only.
+      attachments.push({ name: part.name || "(unnamed)", type: part.contentType, size: part.size });
+    }
+  }
+  processPart(fullMessage);
+
+  let out = (headerBlock || "").trim();
+  for (const sec of textSections) {
+    out += "\n\n--- body (" + sec.type + ") ---\n" + String(sec.body).trim();
+  }
+  if (attachments.length > 0) {
+    out += "\n\n--- attachments (content omitted) ---";
+    for (const att of attachments) {
+      const sizePart = (att.size != null) ? " (" + Math.round(att.size / 1024) + " KB)" : "";
+      out += "\n- " + att.name + " [" + att.type + "]" + sizePart;
+    }
+  }
+  return out;
+}
+
+// Fetches a message and returns the lean full source (see buildLeanSource).
+export async function getMailFullSource(messageId) {
+  if (messageId == null) return "";
+  let headerBlock = "";
+  try {
+    const raw = await browser.messages.getRaw(messageId);
+    headerBlock = String(raw).split(/\r?\n\r?\n/)[0];
+  } catch (e) {
+    // Headers unavailable — fall through with whatever getFull provides.
+  }
+  let full = null;
+  try {
+    full = await browser.messages.getFull(messageId);
+  } catch (e) {
+    // getFull unavailable — return just the header block (if any).
+  }
+  return buildLeanSource(headerBlock, full || {});
+}
+
 export async function reloadBody(tabId){
   let composeDetails = await messenger.compose.getComposeDetails(tabId);
   let originalHtmlBody = composeDetails.body + " ";

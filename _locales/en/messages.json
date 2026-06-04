@@ -657,8 +657,8 @@
     "description": ""
   },
   "placeholder_mail_raw_source": {
-    "message": "Full raw mail source (headers + body)",
-    "description": "Placeholder that inserts the complete RFC822 source of the email, including headers"
+    "message": "Full mail source (headers + body, attachments omitted)",
+    "description": "Placeholder that inserts the email headers and decoded body for analysis; large attachment payloads are excluded"
   },
   "placeholder_mail_subject": {
     "message": "Mail subject",

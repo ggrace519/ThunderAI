@@ -52,7 +52,7 @@ import {
 
 */
 
-import { transformTagsLabels, getCurrentIdentity } from './mzta-utils.js';
+import { transformTagsLabels, getCurrentIdentity, getMailFullSource } from './mzta-utils.js';
 
 const defaultPlaceholders = [
     {
@@ -568,16 +568,18 @@ export const placeholdersUtils = {
                     finalSubs['mail_html_body'] = placeholdersUtils.failSafePlaceholders(msg_text?.html);
                     break;
                 case 'mail_raw_source':
-                    // Full RFC822 source (headers + Received chain + raw body) — needed
-                    // for safety/phishing checks that must see more than the rendered body.
+                    // Full source for safety/phishing checks: complete headers
+                    // (Received chain, SPF/DKIM, Reply-To) + decoded text/HTML body
+                    // + attachment metadata, but WITHOUT the base64 attachment
+                    // payloads that would blow past max_prompt_length.
                     let raw_source = '';
                     try {
                         if(curr_message && curr_message.id != null){
-                            raw_source = await browser.messages.getRaw(curr_message.id);
+                            raw_source = await getMailFullSource(curr_message.id);
                         }
                     } catch (e) {
-                        // getRaw is unavailable when composing or if the message has no id;
-                        // degrade gracefully to an empty value rather than failing the prompt.
+                        // Unavailable when composing or if the message has no id;
+                        // degrade gracefully rather than failing the prompt.
                     }
                     finalSubs['mail_raw_source'] = placeholdersUtils.failSafePlaceholders(raw_source);
                     break;
