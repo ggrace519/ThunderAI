@@ -186,6 +186,19 @@ class MessagesArea extends HTMLElement {
         shadowRoot.appendChild(messagesAreaTemplate.content.cloneNode(true));
 
         this.messages = shadowRoot.querySelector('#messages');
+
+        // Auto-follow streaming output only while the user is at the bottom.
+        // As soon as they scroll up to read, stop following; resume when they
+        // scroll back down. Programmatic scrolls keep the flag true.
+        this.stickToBottom = true;
+        this.messages.addEventListener('scroll', () => {
+            this.stickToBottom = this.isNearBottom();
+        });
+    }
+
+    isNearBottom() {
+        const el = this.messages;
+        return (el.scrollHeight - el.scrollTop - el.clientHeight) <= 50;
     }
 
     createNewAccumulatingMessage() {
@@ -272,7 +285,8 @@ class MessagesArea extends HTMLElement {
         //     }
         // });
         this.messages.appendChild(messageElement);
-        this.scrollToBottom();
+        // A newly sent user message always jumps to the bottom and re-enables follow.
+        this.scrollToBottom(true);
     }
 
     appendBotMessage(messageText, type="bot") {
@@ -293,7 +307,7 @@ class MessagesArea extends HTMLElement {
         messageElement.classList.add('message', type);
         messageElement.textContent = messageText;
         this.messages.appendChild(messageElement);
-        this.scrollToBottom();
+        this.scrollToBottom(true);
     }
 
     handleNewToken(token) {
@@ -317,8 +331,11 @@ class MessagesArea extends HTMLElement {
         }
     }
 
-    scrollToBottom() {
-        this.messages.scrollTop = this.messages.scrollHeight;
+    scrollToBottom(force = false) {
+        if (force || this.stickToBottom) {
+            this.messages.scrollTop = this.messages.scrollHeight;
+            this.stickToBottom = true;
+        }
     }
 
     // click callcback for the "use this answer" button
