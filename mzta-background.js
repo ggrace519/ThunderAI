@@ -1407,7 +1407,7 @@ async function openChatGPT(promptText, action, curr_tabId, prompt_name = '', do_
                     }
                     //console.log(">>>>>>>>>> sender: " + JSON.stringify(sender));
                     browser.tabs.sendMessage(createdTab.id, { command: "api_send", prompt: promptText, action: action, tabId: curr_tabId, mailMessageId: mailMessageId6, do_custom_text: do_custom_text, prompt_info: prompt_info});
-                    taLog.log('[OpenAI ChatGPT] Connection succeded!');
+                    taLog.log('[Anthropic] Connection succeded!');
                     browser.runtime.onMessage.removeListener(listener6);
                 }
 
@@ -1425,6 +1425,7 @@ async function openChatGPT(promptText, action, curr_tabId, prompt_name = '', do_
             }
 
             applyWindowPositionAndSize(win_options6, prefs);
+
 
             await browser.windows.create(win_options6);
         }

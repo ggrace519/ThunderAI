@@ -142,10 +142,10 @@ self.onmessage = async function(event) {
                 }
             } catch (error) {
                 if (error instanceof TypeError && error.message.includes('Error in input stream')) {
-                    console.error('[ThudenderAI] The connection to the server was unexpectedly interrupted:', error);
+                    console.error('[ThunderAI] The connection to the server was unexpectedly interrupted:', error);
                     postMessage({ type: 'error', payload: i18nStrings['error_connection_interrupted'] + ": " + error.message });
                 } else {
-                    console.error('[ThudenderAI] Ollama API request failed:', error);
+                    console.error('[ThunderAI] Ollama API request failed:', error);
                     postMessage({ type: 'error', payload: i18nStrings["ollama_api_request_failed"] + ": " + error.message });
                 }
             }

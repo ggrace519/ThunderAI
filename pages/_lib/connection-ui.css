@@ -125,4 +125,125 @@ span.opt_title{
     .api_key-container .toggle-icon img {
         filter: invert(1);
     }
+
+.btn_test_api {
+    padding: 8px 16px;
+    margin: 10px 0;
+    background-color: #007bff;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.9em;
+    font-weight: bold;
+}
+
+.btn_test_api:hover {
+    background-color: #0056b3;
+}
+
+.btn_test_api:active {
+    background-color: #004085;
+}
+
+.api_test_result {
+    margin-top: 10px;
+    max-width: 100%;
+}
+
+.api_test_result div {
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+}
+
+/* Ensure good contrast for test result text */
+.api_test_response_text {
+    color: #212529 !important;
+    background-color: #ffffff !important;
+}
+
+.api_test_error_text {
+    color: #721c24 !important;
+    background-color: #ffffff !important;
+}
+
+.api_test_success_title {
+    color: #155724 !important;
+}
+
+.api_test_error_title {
+    color: #721c24 !important;
+}
+
+.api_test_loading span {
+    color: #004085 !important;
+}
+
+@media (prefers-color-scheme: dark) {
+    .btn_test_api {
+        background-color: #0d6efd;
+    }
+
+    .btn_test_api:hover {
+        background-color: #0a58ca;
+    }
+
+    .btn_test_api:active {
+        background-color: #084298;
+    }
+
+    /* Dark mode adjustments for test results */
+    .api_test_response_text {
+        background-color: #1e1e1e !important;
+        color: #e0e0e0 !important;
+        border-color: #444 !important;
+    }
+
+    .api_test_error_text {
+        background-color: #2a1a1a !important;
+        color: #ffcccc !important;
+        border-color: #5a2d2d !important;
+    }
+
+    .api_test_success_container {
+        background-color: #1a3a1a !important;
+        border-color: #2d5a2d !important;
+    }
+
+    .api_test_error_container {
+        background-color: #3a1a1a !important;
+        border-color: #5a2d2d !important;
+    }
+
+    .api_test_loading {
+        background-color: #1a2a3a !important;
+        border-color: #2d4a5a !important;
+    }
+
+    .api_test_loading span {
+        color: #b3d9ff !important;
+    }
+
+    .api_test_success_title {
+        color: #90ee90 !important;
+    }
+
+    .api_test_error_title {
+        color: #ff9999 !important;
+    }
+
+    /* "Sent message" sub-box — was light-only, now adapts to dark mode */
+    .api_test_sent_box {
+        background-color: #2a2a2a !important;
+        border-left-color: #888 !important;
+    }
+
+    .api_test_sent_label,
+    .api_test_response_label {
+        color: #b0b0b0 !important;
+    }
+
+    .api_test_sent_text {
+        color: #d0d0d0 !important;
+    }
 }

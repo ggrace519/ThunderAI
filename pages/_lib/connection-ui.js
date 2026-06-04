@@ -234,6 +234,12 @@ export async function injectConnectionUI({
       </label>
     </td>
   </tr>
+  <tr class="conntype_chatgpt_api${tr_class ? ` ${tr_class}` : ''}">
+    <td colspan="2" style="padding:0px 2em;text-align:center;">
+      <button id="${modelId_prefix ? `${modelId_prefix}` : ''}btnTestChatGPTAPI" class="btn_test_api">__MSG_API_Test_Connection__</button>
+      <div id="${modelId_prefix ? `${modelId_prefix}` : ''}chatgpt_api_test_result" class="api_test_result" style="display:none;"></div>
+    </td>
+  </tr>
   <tr class="conntype_google_gemini_api${tr_class ? ` ${tr_class}` : ''}">
     <td><label>
       <span class="opt_title">__MSG_prefs_GoogleGemini_API_Key__</span>
@@ -298,6 +304,12 @@ export async function injectConnectionUI({
         <textarea id="${modelId_prefix ? `${modelId_prefix}` : ''}google_gemini_system_instruction" name="${modelId_prefix ? `${modelId_prefix}` : ''}google_gemini_system_instruction" class="option-input option-textarea"></textarea>
         <br>__MSG_GoogleGemini_SystemInstruction_Info__
       </label>
+    </td>
+  </tr>
+  <tr class="conntype_google_gemini_api${tr_class ? ` ${tr_class}` : ''}">
+    <td colspan="2" style="padding:0px 2em;text-align:center;">
+      <button id="${modelId_prefix ? `${modelId_prefix}` : ''}btnTestGoogleGeminiAPI" class="btn_test_api">__MSG_API_Test_Connection__</button>
+      <div id="${modelId_prefix ? `${modelId_prefix}` : ''}google_gemini_api_test_result" class="api_test_result" style="display:none;"></div>
     </td>
   </tr>
   <tr class="conntype_ollama_api${tr_class ? ` ${tr_class}` : ''}">
@@ -377,6 +389,12 @@ export async function injectConnectionUI({
         <input type="number" id="${modelId_prefix ? `${modelId_prefix}` : ''}ollama_num_ctx" name="${modelId_prefix ? `${modelId_prefix}` : ''}ollama_num_ctx" class="option-input"/>
         <br>__MSG_prefs_ollama_num_ctx_Info__
       </label>
+    </td>
+  </tr>
+  <tr class="conntype_ollama_api${tr_class ? ` ${tr_class}` : ''}">
+    <td colspan="2" style="padding:0px 2em;text-align:center;">
+      <button id="${modelId_prefix ? `${modelId_prefix}` : ''}btnTestOllamaAPI" class="btn_test_api">__MSG_API_Test_Connection__</button>
+      <div id="${modelId_prefix ? `${modelId_prefix}` : ''}ollama_api_test_result" class="api_test_result" style="display:none;"></div>
     </td>
   </tr>
   <tr class="conntype_openai_comp_api${tr_class ? ` ${tr_class}` : ''}">
@@ -475,6 +493,12 @@ export async function injectConnectionUI({
       </label>
     </td>
   </tr>
+  <tr class="conntype_openai_comp_api${tr_class ? ` ${tr_class}` : ''}">
+    <td colspan="2" style="padding:0px 2em;text-align:center;">
+      <button id="${modelId_prefix ? `${modelId_prefix}` : ''}btnTestOpenAICompAPI" class="btn_test_api">__MSG_API_Test_Connection__</button>
+      <div id="${modelId_prefix ? `${modelId_prefix}` : ''}openai_comp_api_test_result" class="api_test_result" style="display:none;"></div>
+    </td>
+  </tr>
   <tr class="conntype_anthropic_api${tr_class ? ` ${tr_class}` : ''}">
     <td><label>
       <span class="opt_title">__MSG_prefs_Anthropic_API_Key__</span>
@@ -556,6 +580,12 @@ export async function injectConnectionUI({
         <input type="number" id="${modelId_prefix ? `${modelId_prefix}` : ''}anthropic_extended_thinking_budget" name="${modelId_prefix ? `${modelId_prefix}` : ''}anthropic_extended_thinking_budget" class="option-input" />
         <br>__MSG_prefs_OptionText_anthropic_extended_thinking_budget_Info__
       </label>
+    </td>
+  </tr>
+  <tr class="conntype_anthropic_api${tr_class ? ` ${tr_class}` : ''}">
+    <td colspan="2" style="padding:0px 2em;text-align:center;">
+      <button id="${modelId_prefix ? `${modelId_prefix}` : ''}btnTestAnthropicAPI" class="btn_test_api">__MSG_API_Test_Connection__</button>
+      <div id="${modelId_prefix ? `${modelId_prefix}` : ''}anthropic_api_test_result" class="api_test_result" style="display:none;"></div>
     </td>
   </tr>
   `;
@@ -1038,7 +1068,287 @@ export async function injectConnectionUI({
    document.querySelectorAll('.check-number').forEach(input => {
     input.addEventListener('input', warn_InvalidNumber);
    });
-  
+
+  // Test API connection functionality
+  async function testAPIConnection(apiType, resultElementId) {
+    const resultElement = document.getElementById(resultElementId);
+    resultElement.style.display = 'block';
+    const testPrompt = "Hello! Please respond with 'OK' to confirm the connection is working.";
+    resultElement.innerHTML = `<div class="api_test_loading" style="padding: 10px; background-color: #e7f3ff; border: 1px solid #b3d9ff; border-radius: 4px; margin-top: 10px;"><span style="font-style: italic; color: #004085;">${browser.i18n.getMessage("API_Test_Sending")}</span></div>`;
+    
+    try {
+      let apiInstance = null;
+      let testMessage = [{ role: "user", content: testPrompt }];
+      let response = null;
+
+      switch (apiType) {
+        case 'chatgpt_api': {
+          const apiKey = document.getElementById(getPrefixedId("chatgpt_api_key")).value;
+          const modelEl = getModelEl('chatgpt_model', modelId_prefix);
+          const model = modelEl ? modelEl.value : '';
+          const developerMessages = document.getElementById(getPrefixedId("chatgpt_developer_messages")).value;
+          const store = document.getElementById(getPrefixedId("chatgpt_store")).checked;
+          
+          if (!apiKey || !model || model.trim() === '') {
+            throw new Error(browser.i18n.getMessage("API_Test_Error_MissingConfig") + " (API Key: " + (apiKey ? "✓" : "✗") + ", Model: " + (model ? "✓" : "✗") + ")");
+          }
+          
+          apiInstance = new OpenAI({
+            apiKey: apiKey,
+            model: model,
+            developer_messages: developerMessages,
+            stream: false,
+            store: store
+          });
+          response = await apiInstance.fetchResponse(testMessage);
+          break;
+        }
+        case 'google_gemini_api': {
+          const apiKey = document.getElementById(getPrefixedId("google_gemini_api_key")).value;
+          const modelEl = getModelEl('google_gemini_model', modelId_prefix);
+          const model = modelEl ? modelEl.value : '';
+          const systemInstruction = document.getElementById(getPrefixedId("google_gemini_system_instruction")).value;
+          const thinkingBudget = document.getElementById(getPrefixedId("google_gemini_thinking_budget")).value;
+          
+          if (!apiKey || !model || model.trim() === '') {
+            throw new Error(browser.i18n.getMessage("API_Test_Error_MissingConfig") + " (API Key: " + (apiKey ? "✓" : "✗") + ", Model: " + (model ? "✓" : "✗") + ")");
+          }
+          
+          apiInstance = new GoogleGemini({
+            apiKey: apiKey,
+            model: model,
+            system_instruction: systemInstruction,
+            thinking_budget: thinkingBudget,
+            stream: false
+          });
+          // Google Gemini uses a different message format
+          testMessage = [{ role: "user", parts: [{"text": "Hello! Please respond with 'OK' to confirm the connection is working."}] }];
+          response = await apiInstance.fetchResponse(testMessage);
+          break;
+        }
+        case 'ollama_api': {
+          const host = document.getElementById(getPrefixedId("ollama_host")).value;
+          const modelEl = getModelEl('ollama_model', modelId_prefix);
+          
+          if (!modelEl) {
+            throw new Error(browser.i18n.getMessage("API_Test_Error_MissingConfig") + " (Model element not found)");
+          }
+          
+          // Read the model value fresh from the DOM - get it from the selected option
+          let model = '';
+          if (modelEl.selectedIndex >= 0 && modelEl.options[modelEl.selectedIndex]) {
+            model = modelEl.options[modelEl.selectedIndex].value;
+          } else {
+            model = modelEl.value || '';
+          }
+          
+          const numCtx = document.getElementById(getPrefixedId("ollama_num_ctx")).value;
+          const think = document.getElementById(getPrefixedId("ollama_think")).checked;
+
+          if (!host || !model || model.trim() === '') {
+            throw new Error(browser.i18n.getMessage("API_Test_Error_MissingConfig") + " (Host: " + (host ? "✓" : "✗") + ", Model: " + (model ? "✓" : "✗") + ")");
+          }
+          
+          const modelValue = model.trim();
+          
+          apiInstance = new Ollama({
+            host: host,
+            model: modelValue,
+            num_ctx: numCtx,
+            think: think,
+            stream: false
+          });
+
+          response = await apiInstance.fetchResponse(testMessage);
+          break;
+        }
+        case 'openai_comp_api': {
+          const host = document.getElementById(getPrefixedId("openai_comp_host")).value;
+          const modelEl = getModelEl('openai_comp_model', modelId_prefix);
+          const model = modelEl ? modelEl.value : '';
+          const apiKey = document.getElementById(getPrefixedId("openai_comp_api_key")).value;
+          const useV1 = document.getElementById(getPrefixedId("openai_comp_use_v1")).checked;
+          
+          if (!host || !model || model.trim() === '') {
+            throw new Error(browser.i18n.getMessage("API_Test_Error_MissingConfig") + " (Host: " + (host ? "✓" : "✗") + ", Model: " + (model ? "✓" : "✗") + ")");
+          }
+          
+          apiInstance = new OpenAIComp({
+            host: host,
+            model: model,
+            apiKey: apiKey,
+            use_v1: useV1,
+            stream: false
+          });
+          response = await apiInstance.fetchResponse(testMessage);
+          break;
+        }
+        case 'anthropic_api': {
+          const apiKey = document.getElementById(getPrefixedId("anthropic_api_key")).value;
+          const modelEl = getModelEl('anthropic_model', modelId_prefix);
+          const model = modelEl ? modelEl.value : '';
+          const version = document.getElementById(getPrefixedId("anthropic_version")).value;
+          const maxTokens = document.getElementById(getPrefixedId("anthropic_max_tokens")).value;
+          
+          if (!apiKey || !model || model.trim() === '' || !version) {
+            throw new Error(browser.i18n.getMessage("API_Test_Error_MissingConfig") + " (API Key: " + (apiKey ? "✓" : "✗") + ", Model: " + (model ? "✓" : "✗") + ", Version: " + (version ? "✓" : "✗") + ")");
+          }
+          
+          apiInstance = new Anthropic({
+            apiKey: apiKey,
+            model: model,
+            version: version,
+            max_tokens: maxTokens,
+            stream: false
+          });
+          response = await apiInstance.fetchResponse(testMessage);
+          break;
+        }
+      }
+
+      if (!response) {
+        throw new Error(browser.i18n.getMessage("API_Test_Error_NoResponse"));
+      }
+
+      if (response.is_exception) {
+        throw new Error(response.error || browser.i18n.getMessage("API_Test_Error_Exception"));
+      }
+
+      // Check if response is ok before parsing
+      if (!response.ok) {
+        let errorText = '';
+        let errorDetail = '';
+        try {
+          errorText = await response.text();
+          console.error('[ThunderAI Test] API error response:', errorText);
+          try {
+            const errorJson = JSON.parse(errorText);
+            errorDetail = errorJson.error?.message || errorJson.error?.error || errorJson.error || errorText;
+            // For Ollama, check for specific error formats
+            if (apiType === 'ollama_api' && errorJson.error) {
+              if (typeof errorJson.error === 'string') {
+                errorDetail = errorJson.error;
+              } else if (errorJson.error.message) {
+                errorDetail = errorJson.error.message;
+              }
+            }
+          } catch (e) {
+            errorDetail = errorText || response.statusText || browser.i18n.getMessage("API_Test_Error_Unknown");
+          }
+        } catch (e) {
+          errorDetail = response.statusText || browser.i18n.getMessage("API_Test_Error_Unknown");
+        }
+        throw new Error(`${response.status} ${response.statusText}: ${errorDetail}`);
+      }
+
+      // Parse response based on API type
+      let responseData = null;
+      let responseText = '';
+      
+      // Clone the response before reading so we can read it as text if JSON parsing fails
+      const clonedResponse = response.clone();
+      
+      try {
+        // Try to parse as JSON
+        responseData = await response.json();
+        
+        // Check if responseData is null or not an object
+        if (responseData === null || typeof responseData !== 'object') {
+          throw new Error(browser.i18n.getMessage("API_Test_Error_EmptyResponse"));
+        }
+      } catch (parseError) {
+        // If JSON parsing fails, try to get the raw text for debugging
+        let rawText = '';
+        try {
+          rawText = await clonedResponse.text();
+        } catch (e) {
+          // If we can't read the text either, just use the parse error
+        }
+        
+        const errorMsg = browser.i18n.getMessage("API_Test_Error_InvalidResponse") + 
+          ": " + parseError.message + 
+          (rawText ? " (Raw response: " + rawText.substring(0, 200) + ")" : "");
+        throw new Error(errorMsg);
+      }
+
+      if (apiType === 'chatgpt_api') {
+        // OpenAI Responses API: the answer lives in the output array
+        const msgOutput = responseData.output?.find(o => o.type === 'message');
+        responseText = msgOutput?.content?.find(c => c.type === 'output_text')?.text || JSON.stringify(responseData, null, 2);
+      } else if (apiType === 'openai_comp_api') {
+        responseText = responseData.choices?.[0]?.message?.content || JSON.stringify(responseData, null, 2);
+      } else if (apiType === 'google_gemini_api') {
+        responseText = responseData.candidates?.[0]?.content?.parts?.[0]?.text || JSON.stringify(responseData, null, 2);
+      } else if (apiType === 'ollama_api') {
+        // Ollama non-streaming response can have different structures
+        if (responseData.message?.content) {
+          responseText = responseData.message.content;
+        } else if (responseData.response) {
+          // Some Ollama models return response directly
+          responseText = responseData.response;
+        } else if (responseData.content) {
+          // Alternative format
+          responseText = responseData.content;
+        } else if (typeof responseData === 'string') {
+          responseText = responseData;
+        } else {
+          // Fallback: show the full response so the user can see what came back
+          responseText = JSON.stringify(responseData, null, 2);
+        }
+      } else if (apiType === 'anthropic_api') {
+        responseText = responseData.content?.[0]?.text || JSON.stringify(responseData, null, 2);
+      } else {
+        responseText = JSON.stringify(responseData, null, 2);
+      }
+
+      resultElement.innerHTML = `
+        <div class="api_test_success_container" style="padding: 10px; background-color: #d4edda; border: 1px solid #c3e6cb; border-radius: 4px; margin-top: 10px;">
+          <div class="api_test_success_title" style="font-weight: bold; color: #155724; margin-bottom: 8px;">✓ ${browser.i18n.getMessage("API_Test_Success")}</div>
+          <div class="api_test_sent_box" style="margin-bottom: 8px; padding: 6px; background-color: #f8f9fa; border-left: 3px solid #6c757d; border-radius: 2px;">
+            <div class="api_test_sent_label" style="font-size: 0.85em; color: #6c757d; font-weight: bold; margin-bottom: 4px;">${browser.i18n.getMessage("API_Test_SentMessage")}:</div>
+            <div class="api_test_sent_text" style="color: #495057; font-style: italic;">"${escapeHtml(testPrompt)}"</div>
+          </div>
+          <div class="api_test_response_label" style="margin-bottom: 4px; font-size: 0.85em; color: #6c757d; font-weight: bold;">${browser.i18n.getMessage("API_Test_Response")}:</div>
+          <div class="api_test_response_text" style="margin-top: 4px; padding: 8px; background-color: #ffffff; color: #212529; border: 1px solid #dee2e6; border-radius: 3px; font-family: monospace; font-size: 0.9em; max-height: 300px; overflow-y: auto; white-space: pre-wrap; word-wrap: break-word; line-height: 1.5;">${escapeHtml(responseText)}</div>
+        </div>
+      `;
+    } catch (error) {
+      resultElement.innerHTML = `
+        <div class="api_test_error_container" style="padding: 10px; background-color: #f8d7da; border: 1px solid #f5c6cb; border-radius: 4px; margin-top: 10px;">
+          <div class="api_test_error_title" style="font-weight: bold; color: #721c24; margin-bottom: 8px;">✗ ${browser.i18n.getMessage("API_Test_Error")}</div>
+          <div class="api_test_error_text" style="margin-top: 8px; padding: 8px; background-color: #ffffff; color: #721c24; border: 1px solid #f5c6cb; border-radius: 3px; font-family: monospace; font-size: 0.9em; line-height: 1.5; word-wrap: break-word;">${escapeHtml(error.message)}</div>
+        </div>
+      `;
+    }
+  }
+
+  function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+  }
+
+  // Add event listeners for test buttons
+  document.getElementById(getPrefixedId('btnTestChatGPTAPI')).addEventListener('click', () => {
+    testAPIConnection('chatgpt_api', getPrefixedId('chatgpt_api_test_result'));
+  });
+
+  document.getElementById(getPrefixedId('btnTestGoogleGeminiAPI')).addEventListener('click', () => {
+    testAPIConnection('google_gemini_api', getPrefixedId('google_gemini_api_test_result'));
+  });
+
+  document.getElementById(getPrefixedId('btnTestOllamaAPI')).addEventListener('click', () => {
+    testAPIConnection('ollama_api', getPrefixedId('ollama_api_test_result'));
+  });
+
+  document.getElementById(getPrefixedId('btnTestOpenAICompAPI')).addEventListener('click', () => {
+    testAPIConnection('openai_comp_api', getPrefixedId('openai_comp_api_test_result'));
+  });
+
+  document.getElementById(getPrefixedId('btnTestAnthropicAPI')).addEventListener('click', () => {
+    testAPIConnection('anthropic_api', getPrefixedId('anthropic_api_test_result'));
+  });
+
   warn_ChatGPT_APIKeyEmpty(modelId_prefix);
   warn_Ollama_HostEmpty(modelId_prefix);
   warn_OpenAIComp_HostEmpty(modelId_prefix);

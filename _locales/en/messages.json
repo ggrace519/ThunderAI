@@ -2456,5 +2456,53 @@
   "menu_order_icon_none": {
     "message": "(none)",
     "description": "Dropdown option meaning no custom icon is selected for the context menu item"
+  },
+  "API_Test_Connection": {
+    "message": "Test API Connection",
+    "description": "Button text to test API connection"
+  },
+  "API_Test_Sending": {
+    "message": "Sending test request...",
+    "description": "Message shown while sending test API request"
+  },
+  "API_Test_Success": {
+    "message": "Connection successful!",
+    "description": "Message shown when API test is successful"
+  },
+  "API_Test_Error": {
+    "message": "Connection failed",
+    "description": "Message shown when API test fails"
+  },
+  "API_Test_Error_MissingConfig": {
+    "message": "Missing required configuration (API key, model, etc.)",
+    "description": "Error message when API configuration is incomplete"
+  },
+  "API_Test_Error_NoResponse": {
+    "message": "No response received from API",
+    "description": "Error message when API doesn't return a response"
+  },
+  "API_Test_Error_Exception": {
+    "message": "An exception occurred while testing the connection",
+    "description": "Error message for general exceptions during API test"
+  },
+  "API_Test_Error_Unknown": {
+    "message": "Unknown error",
+    "description": "Error message for unknown errors"
+  },
+  "API_Test_Error_InvalidResponse": {
+    "message": "Invalid response format",
+    "description": "Error message when API response cannot be parsed"
+  },
+  "API_Test_Error_EmptyResponse": {
+    "message": "Empty response received from API",
+    "description": "Error message when API returns empty response"
+  },
+  "API_Test_SentMessage": {
+    "message": "Test message sent",
+    "description": "Label for the test message that was sent to the API"
+  },
+  "API_Test_Response": {
+    "message": "API Response",
+    "description": "Label for the API response text"
   }
 }
