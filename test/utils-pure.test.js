@@ -100,15 +100,28 @@ describe('hasSpecificIntegration', () => {
 });
 
 describe('getConnectionType', () => {
-  it('returns the base type when prompt-specific API is disabled', () => {
-    expect(getConnectionType('anthropic_api', { api: 'openai_comp_api' }, false)).toBe('anthropic_api');
+  it('returns the default connection type from prefs', () => {
+    expect(getConnectionType({ connection_type: 'anthropic_api' }, {})).toBe('anthropic_api');
+    expect(getConnectionType({ connection_type: 'anthropic_api' }, { api_type: '' })).toBe('anthropic_api');
   });
-  it("uses the prompt's api when set", () => {
-    expect(getConnectionType('anthropic_api', { api: 'openai_comp_api' })).toBe('openai_comp_api');
+  it("uses the prompt's api_type when set", () => {
+    expect(getConnectionType({ connection_type: 'anthropic_api' }, { api_type: 'openai_comp_api' })).toBe('openai_comp_api');
   });
-  it('falls back to the base type when the prompt has no api', () => {
-    expect(getConnectionType('anthropic_api', { api: '' })).toBe('anthropic_api');
-    expect(getConnectionType('anthropic_api', {})).toBe('anthropic_api');
+  it('prefers the feature-specific integration when enabled via prefix', () => {
+    const prefs = {
+      connection_type: 'anthropic_api',
+      add_tags_use_specific_integration: true,
+      add_tags_connection_type: 'ollama_api',
+    };
+    expect(getConnectionType(prefs, { api_type: 'openai_comp_api' }, 'add_tags')).toBe('ollama_api');
+  });
+  it('ignores the prefix when the specific integration is disabled', () => {
+    const prefs = {
+      connection_type: 'anthropic_api',
+      add_tags_use_specific_integration: false,
+      add_tags_connection_type: 'ollama_api',
+    };
+    expect(getConnectionType(prefs, {}, 'add_tags')).toBe('anthropic_api');
   });
 });
 
