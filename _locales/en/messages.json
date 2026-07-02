@@ -143,6 +143,14 @@
     "message": "The text comparison viewer can be selected when the action is set to \"Substitute text\".",
     "description": ""
   },
+  "customPrompts_form_label_dont_send_body": {
+    "message": "Don't send the email body",
+    "description": ""
+  },
+  "customPrompts_form_label_dont_send_body_title": {
+    "message": "When enabled, the email body is not sent as a separate section: the auto-appended body and the {%mail_text_body%}/{%mail_html_body%} placeholders are suppressed, and {%mail_raw_source%} appends the decoded body inline right after the headers (one clean representation; attachment/image payloads omitted) instead of a labelled '--- body ---' section. To cap token cost it also trims the headers to the security-relevant ones (From, Reply-To, Authentication-Results, Received, Subject, …) and strips the body's inline CSS/styling, keeping the text, links and image targets a safety check needs.",
+    "description": ""
+  },
   "customPrompts_form_required_fields": {
     "message": "Required fields",
     "description": ""

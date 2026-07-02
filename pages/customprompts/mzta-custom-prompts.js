@@ -230,6 +230,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     var checkboxNeedCustomTextNew = document.getElementById('checkboxNeedCustomTextNew');
     var checkboxDefineResponseLangNew = document.getElementById('checkboxDefineResponseLangNew');
     var checkboxUseDiffViewerNew = document.getElementById('checkboxUseDiffViewerNew');
+    var checkboxDontSendBodyNew = document.getElementById('checkboxDontSendBodyNew');
     // ChatGTP Web Integration
     var chatgptWebModelNew = document.getElementById('chatGPTWebModelNew');
     var chatgptWebProjectNew = document.getElementById('chatGPTWebProjectNew');
@@ -263,6 +264,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             need_custom_text: (checkboxNeedCustomTextNew.checked) ? 1 : 0,
             define_response_lang: (checkboxDefineResponseLangNew.checked) ? 1 : 0,
             use_diff_viewer: (checkboxUseDiffViewerNew.checked) ? 1 : 0,
+            dont_send_body: (checkboxDontSendBodyNew.checked) ? 1 : 0,
             enabled: 1,
             position_compose: positionMax_compose + 1,
             position_display: positionMax_display + 1,
@@ -675,6 +677,7 @@ function showItemRowEditor(tr) {
     tr.querySelector('input.need_custom_text').disabled = false;
     tr.querySelector('input.define_response_lang').disabled = false;
     tr.querySelector('input.use_diff_viewer').disabled = false;
+    tr.querySelector('input.dont_send_body').disabled = false;
 }
 
 function hideItemRowEditor(tr) {
@@ -702,6 +705,7 @@ function hideItemRowEditor(tr) {
     tr.querySelector('input.need_custom_text').disabled = true;
     tr.querySelector('input.define_response_lang').disabled = true;
     tr.querySelector('input.use_diff_viewer').disabled = true;
+    tr.querySelector('input.dont_send_body').disabled = true;
 }
 
 function toggleAdditionalPropertiesShow(tr) {
@@ -1057,7 +1061,7 @@ function loadPromptsList(values){
     }
 
     let options = {
-        valueNames: [ { data: ['idnum'] }, 'is_default', 'id', 'name', 'text', 'type', 'action', 'position_compose', 'position_display', 'show_in', { name: 'need_selected', attr: 'checked_val'}, { name: 'need_signature', attr: 'checked_val'}, { name: 'need_custom_text', attr: 'checked_val'}, { name: 'define_response_lang', attr: 'checked_val'}, { name: 'use_diff_viewer', attr: 'checked_val'}, { name: 'enabled', attr: 'checked_val'}, 'api_type', ...api_fields ],
+        valueNames: [ { data: ['idnum'] }, 'is_default', 'id', 'name', 'text', 'type', 'action', 'position_compose', 'position_display', 'show_in', { name: 'need_selected', attr: 'checked_val'}, { name: 'need_signature', attr: 'checked_val'}, { name: 'need_custom_text', attr: 'checked_val'}, { name: 'define_response_lang', attr: 'checked_val'}, { name: 'use_diff_viewer', attr: 'checked_val'}, { name: 'dont_send_body', attr: 'checked_val'}, { name: 'enabled', attr: 'checked_val'}, 'api_type', ...api_fields ],
         item: function(values) {
             let type_output = '';
             switch(String(values.type)){
@@ -1173,6 +1177,8 @@ function loadPromptsList(values){
                     <label><input type="checkbox" class="define_response_lang" disabled> __MSG_customPrompts_form_label_define_response_lang__</label>
                     <br>
                     <label title="__MSG_customPrompts_form_label_use_diff_viewer_title__"><input type="checkbox" class="use_diff_viewer" disabled> __MSG_customPrompts_form_label_use_diff_viewer__</label>
+                    <br>
+                    <label title="__MSG_customPrompts_form_label_dont_send_body_title__"><input type="checkbox" class="dont_send_body" disabled> __MSG_customPrompts_form_label_dont_send_body__</label>
                     <br>
                     <label><input type="checkbox" class="enabled input_mod"> __MSG_customPrompts_form_label_enabled__</label>
                     <span class="is_default hiddendata"></span>
@@ -1315,6 +1321,7 @@ function clearFields() {
     document.getElementById('checkboxNeedSelectedNew').value = '0';
     document.getElementById('checkboxNeedSignatureNew').value = '0';
     document.getElementById('checkboxNeedCustomTextNew').value = '0';
+    document.getElementById('checkboxDontSendBodyNew').checked = false;
     document.getElementById('formNew').style.display = 'none';
 }
 
@@ -1369,6 +1376,7 @@ function checkSelectedBoxes(checkboxes = null) {
             ...document.querySelectorAll('.need_custom_text[type="checkbox"]'),
             ...document.querySelectorAll('.define_response_lang[type="checkbox"]'),
             ...document.querySelectorAll('.use_diff_viewer[type="checkbox"]'),
+            ...document.querySelectorAll('.dont_send_body[type="checkbox"]'),
             ...document.querySelectorAll('.enabled[type="checkbox"]'),
         ];
     }

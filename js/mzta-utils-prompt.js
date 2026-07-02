@@ -52,11 +52,16 @@ export const taPromptUtils = {
         } = args || {};
 
         let fullPrompt = '';
-        
+        // When a prompt opts out of sending the rendered email body (e.g. it
+        // relies on {%mail_raw_source%} instead), the body must not also be
+        // sent — neither the body appended automatically to placeholder-free
+        // prompts nor the {%mail_text_body%}/{%mail_html_body%} placeholders.
+        const dont_send_body = String(curr_prompt.dont_send_body) == "1";
+
         if(!placeholdersUtils.hasPlaceholder(curr_prompt.text)){
             // no placeholders, do as usual
             const signature = String(curr_prompt.need_signature) === "1" ? await taPromptUtils.getDefaultSignature() : "";
-            const content = selection_text || body_text;
+            const content = dont_send_body ? "" : (selection_text || body_text);
             fullPrompt = [curr_prompt.text, signature, chatgpt_lang, content ? `"${content}"` : ""].filter(Boolean).join(" ");
         }else{
             // we have at least a placeholder, do the magic!
@@ -71,8 +76,16 @@ export const taPromptUtils = {
                 return `{%additional_text:#${additionalTextCounter++}%}`;
             });
 
+            // Strip the rendered-body placeholders before substitution when the
+            // prompt opts out of sending the body. They are removed (not blanked
+            // via replacements) because an empty replacement would otherwise
+            // leave the literal placeholder in the prompt.
+            let prompt_text = curr_prompt.text;
+            if(dont_send_body){
+                prompt_text = prompt_text.replace(/{%\s*mail_text_body\s*%}/g, '').replace(/{%\s*mail_html_body\s*%}/g, '');
+            }
             let finalSubs = await placeholdersUtils.getPlaceholdersValues({
-                prompt_text: curr_prompt.text,
+                prompt_text: prompt_text,
                 curr_message: curr_message,
                 mail_subject: subject_text,
                 body_text: body_text,
@@ -81,11 +94,12 @@ export const taPromptUtils = {
                 only_quoted_text: only_quoted_text,
                 selection_text: selection_text,
                 selection_html: selection_html,
-                tags_full_list: tags_full_list
+                tags_full_list: tags_full_list,
+                dont_send_body: dont_send_body
             });
             let prefs_ph = await browser.storage.sync.get({ placeholders_use_default_value: prefs_default.placeholders_use_default_value });
             fullPrompt = (placeholdersUtils.replacePlaceholders({
-                text: curr_prompt.text,
+                text: prompt_text,
                 replacements: finalSubs,
                 use_default_value: prefs_ph.placeholders_use_default_value,
                 skip_additional_text: true

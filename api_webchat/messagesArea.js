@@ -188,17 +188,30 @@ class MessagesArea extends HTMLElement {
         this.messages = shadowRoot.querySelector('#messages');
 
         // Auto-follow streaming output only while the user is at the bottom.
-        // As soon as they scroll up to read, stop following; resume when they
-        // scroll back down. Programmatic scrolls keep the flag true.
+        // Any deliberate upward scroll stops the follow so the user can read
+        // mid-stream; returning to the bottom resumes it.
+        //
+        // Why not just `stickToBottom = isNearBottom()` on every scroll: we
+        // call scrollToBottom() on every streamed token, so a small upward
+        // nudge that stays within a "near bottom" threshold would be undone by
+        // the very next token (the yank-back bug). Instead, ANY upward movement
+        // pauses following; only reaching the bottom (within 50px) resumes it.
+        // The `distanceFromBottom > 4` guard keeps a content-height *shrink*
+        // (the markdown flush replacing raw tokens with rendered HTML clamps
+        // scrollTop down) from being misread as a user scroll-up.
         this.stickToBottom = true;
+        this.lastScrollTop = 0;
         this.messages.addEventListener('scroll', () => {
-            this.stickToBottom = this.isNearBottom();
+            const el = this.messages;
+            const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+            const movedUp = el.scrollTop < this.lastScrollTop - 1;
+            this.lastScrollTop = el.scrollTop;
+            if (movedUp && distanceFromBottom > 4) {
+                this.stickToBottom = false;
+            } else if (distanceFromBottom <= 50) {
+                this.stickToBottom = true;
+            }
         });
-    }
-
-    isNearBottom() {
-        const el = this.messages;
-        return (el.scrollHeight - el.scrollTop - el.clientHeight) <= 50;
     }
 
     createNewAccumulatingMessage() {
@@ -335,6 +348,9 @@ class MessagesArea extends HTMLElement {
         if (force || this.stickToBottom) {
             this.messages.scrollTop = this.messages.scrollHeight;
             this.stickToBottom = true;
+            // Keep the scroll-listener baseline in sync so this programmatic
+            // jump to the bottom is never mistaken for a user scroll-up.
+            this.lastScrollTop = this.messages.scrollTop;
         }
     }
 

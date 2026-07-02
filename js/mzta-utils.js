@@ -254,9 +254,82 @@ export async function getMailBody(fullMessage, messageId) {
 // the complete header block plus the decoded text/HTML body parts and
 // attachment metadata — WITHOUT the large base64 attachment / inline-image
 // payloads that bloat the raw RFC822 source (and blow past max_prompt_length).
+// Headers a safety / phishing check actually uses. Everything else (DKIM/ARC
+// signature blobs, X-Google-*/X-Gm-* state, X-HE-Meta, etc.) is dropped in
+// "clean" mode to cap token cost — the SPF/DKIM/DMARC *verdict* lives in
+// Authentication-Results, not in the multi-KB signature values.
+export const SECURITY_HEADERS = [
+  "from", "to", "cc", "bcc", "reply-to", "return-path", "sender", "delivered-to",
+  "subject", "date", "message-id", "in-reply-to", "references",
+  "authentication-results", "received", "received-spf", "content-type",
+  "x-spam-status", "x-spam-flag",
+];
+
+// Keeps only the allow-listed headers from a header block, preserving folded
+// continuation lines (those starting with whitespace). Pure / testable.
+export function trimHeadersBlock(headerBlock, keepNames = SECURITY_HEADERS) {
+  if (!headerBlock) return "";
+  const keep = new Set(keepNames.map((s) => s.toLowerCase()));
+  const out = [];
+  let keeping = false;
+  for (const line of String(headerBlock).split(/\r?\n/)) {
+    if (/^[ \t]/.test(line)) {            // folded continuation of the current header
+      if (keeping) out.push(line);
+      continue;
+    }
+    const m = line.match(/^([!-9;-~]+):/); // "Header-Name:" (printable, no space)
+    if (m) {
+      keeping = keep.has(m[1].toLowerCase());
+      if (keeping) out.push(line);
+    } else {
+      keeping = false;                     // blank/garbage line ends the current header
+    }
+  }
+  return out.join("\n");
+}
+
+// Strips the noise from an HTML body for analysis: removes <style>/<script>
+// blocks and comments, drops every attribute except the analysis-relevant ones
+// (links, image sources, alt/title), and collapses whitespace. Keeps the tags,
+// the visible text, and the real link/image targets a phishing check needs,
+// while cutting the bulk of inline CSS that dominates marketing/newsletter HTML.
+// Pure / testable (regex-based so it runs without a DOM).
+export function cleanHtmlForAnalysis(html) {
+  if (!html) return "";
+  const KEEP_ATTRS = new Set(["href", "src", "alt", "title", "rel", "target", "type"]);
+  let out = String(html)
+    .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, "")
+    .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, "")
+    .replace(/<!--[\s\S]*?-->/g, "");
+  // Rewrite each opening tag keeping only the allow-listed attributes.
+  out = out.replace(/<([a-zA-Z][a-zA-Z0-9]*)\b([^>]*?)(\/?)>/g, (m, tag, attrs, selfClose) => {
+    const kept = [];
+    const attrRe = /([a-zA-Z_:][-a-zA-Z0-9_:.]*)\s*=\s*("[^"]*"|'[^']*'|[^\s"'>]+)/g;
+    let a;
+    while ((a = attrRe.exec(attrs)) !== null) {
+      if (KEEP_ATTRS.has(a[1].toLowerCase())) kept.push(a[1].toLowerCase() + "=" + a[2]);
+    }
+    return "<" + tag + (kept.length ? " " + kept.join(" ") : "") + (selfClose ? "/" : "") + ">";
+  });
+  // Collapse whitespace introduced by the stripping.
+  return out
+    .replace(/[ \t]*\r?\n[ \t]*/g, "\n")
+    .replace(/\n{2,}/g, "\n")
+    .replace(/[ \t]{2,}/g, " ")
+    .trim();
+}
+
 // Pure function: headerBlock is the raw top-of-message header block; fullMessage
 // is the object returned by browser.messages.getFull().
-export function buildLeanSource(headerBlock, fullMessage) {
+// opts.inlineBody: when true, the decoded body is appended directly after the
+// headers (like a normal email source — a single representation) instead of in a
+// labelled "--- body ---" section; used when a prompt opts out of a separate
+// rendered body.
+// opts.clean: when true, trim the headers to the security allow-list and strip
+// the HTML body's styling noise to cap token cost without losing analyzable
+// context (links, text, image targets, auth verdict).
+export function buildLeanSource(headerBlock, fullMessage, opts = {}) {
+  const { inlineBody = false, clean = false } = opts;
   const htmlParts = [];
   const plainParts = [];
   const attachments = [];
@@ -285,9 +358,13 @@ export function buildLeanSource(headerBlock, fullMessage) {
   const bodyType = htmlParts.length > 0 ? "text/html" : "text/plain";
   const bodyParts = htmlParts.length > 0 ? htmlParts : plainParts;
 
-  let out = (headerBlock || "").trim();
+  let out = (clean ? trimHeadersBlock(headerBlock) : (headerBlock || "")).trim();
   for (const body of bodyParts) {
-    out += "\n\n--- body (" + bodyType + ") ---\n" + String(body).trim();
+    let bodyText = String(body).trim();
+    if (clean && bodyType === "text/html") bodyText = cleanHtmlForAnalysis(bodyText);
+    out += inlineBody
+      ? "\n\n" + bodyText
+      : "\n\n--- body (" + bodyType + ") ---\n" + bodyText;
   }
   if (attachments.length > 0) {
     out += "\n\n--- attachments (content omitted) ---";
@@ -299,23 +376,55 @@ export function buildLeanSource(headerBlock, fullMessage) {
   return out;
 }
 
+// getFull().headers is an object of { "lowercased-name": [value, ...] }.
+// Rebuilds a readable header block from it, used when getRaw() is unavailable
+// (e.g. messages that aren't fully downloaded) so a safety check still sees the
+// Received chain / SPF / DKIM / Reply-To headers.
+export function headersObjectToBlock(headers) {
+  if (!headers) return "";
+  const lines = [];
+  for (const name of Object.keys(headers)) {
+    const values = headers[name];
+    const arr = Array.isArray(values) ? values : [values];
+    for (const value of arr) {
+      lines.push(name + ": " + value);
+    }
+  }
+  return lines.join("\n");
+}
+
 // Fetches a message and returns the lean full source (see buildLeanSource).
-export async function getMailFullSource(messageId) {
+// Resilient to either underlying API being unavailable: getFull supplies the
+// (already decoded) body parts AND can stand in for the headers when getRaw
+// fails, so the result is only empty when the message is genuinely inaccessible.
+// opts.inlineBody is forwarded to buildLeanSource: when true, the decoded body
+// is appended inline after the verbatim raw headers (a single clean
+// representation) — used when a prompt opts out of a separate rendered body.
+export async function getMailFullSource(messageId, opts = {}) {
   if (messageId == null) return "";
+
+  let full = null;
+  try {
+    full = await browser.messages.getFull(messageId);
+  } catch (e) {
+    // getFull unavailable — we'll rely on getRaw for the headers below.
+  }
+
+  // Prefer the verbatim header block from getRaw; if getRaw is unavailable,
+  // reconstruct the headers from getFull's parsed headers instead of dropping
+  // them (which previously left {%mail_raw_source%} resolving to nothing).
   let headerBlock = "";
   try {
     const raw = await browser.messages.getRaw(messageId);
     headerBlock = String(raw).split(/\r?\n\r?\n/)[0];
   } catch (e) {
-    // Headers unavailable — fall through with whatever getFull provides.
+    // Headers unavailable from getRaw — fall back to getFull's headers.
   }
-  let full = null;
-  try {
-    full = await browser.messages.getFull(messageId);
-  } catch (e) {
-    // getFull unavailable — return just the header block (if any).
+  if (!headerBlock.trim() && full && full.headers) {
+    headerBlock = headersObjectToBlock(full.headers);
   }
-  return buildLeanSource(headerBlock, full || {});
+
+  return buildLeanSource(headerBlock, full || {}, opts);
 }
 
 export async function reloadBody(tabId){

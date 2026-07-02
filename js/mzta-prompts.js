@@ -67,6 +67,11 @@
     "context": Show only in the context menu
     "both": Show in both popup and context menus
     "none": Do not show in any menu
+    Don't send the email body (dont_send_body attribute):
+    0: Send the rendered email body as usual
+    1: Do not send the rendered email body (the auto-appended body and the
+       {%mail_text_body%}/{%mail_html_body%} placeholders are suppressed; use
+       with {%mail_raw_source%} to send only the full source)
 
     ================ USER PROPERTIES
     Enabled (enabled attribute):
@@ -524,6 +529,7 @@ async function getDefaultPrompts_withProps() {
             prompt.position_compose = pos;
             prompt.position_context = pos;
             prompt.enabled = 1;
+            prompt.dont_send_body = "0";
             pos++;
         })
         // console.log('>>>>>>>>>>>> getDefaultPrompts_withProps [no prop saved] defaultPrompts_prop: ' + JSON.stringify(defaultPrompts_prop));
@@ -531,6 +537,7 @@ async function getDefaultPrompts_withProps() {
         let pos = 1000;
         defaultPrompts_prop.forEach((prompt) => {
             prompt.text = browser.i18n.getMessage(prompt.text);
+            prompt.dont_send_body = "0";
             if(prefs._default_prompts_properties?.[prompt.id]){
                 prompt.position_compose = prefs._default_prompts_properties[prompt.id].position_compose;
                 prompt.position_display = prefs._default_prompts_properties[prompt.id].position_display;
@@ -566,6 +573,9 @@ async function getCustomPrompts() {
         prefs._custom_prompt.forEach(prompt => {
             if (prompt.use_diff_viewer === undefined) {
                 prompt.use_diff_viewer = "0";
+            }
+            if (prompt.dont_send_body === undefined) {
+                prompt.dont_send_body = "0";
             }
             if(prompt.chatgpt_web_model === undefined){
                 prompt.chatgpt_web_model = "";
