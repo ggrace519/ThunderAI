@@ -748,6 +748,14 @@
     "message": "Thinking",
     "description": ""
   },
+  "prefs_OptionText_use_structured_output": {
+    "message": "Use structured AI responses",
+    "description": "Options page label for the structured output setting"
+  },
+  "prefs_OptionText_use_structured_output_Info": {
+    "message": "Forces automatic commands (add tags, spam filter) to return valid JSON directly from the AI, making them much more reliable. Disable only if your OpenAI-compatible server rejects the response_format parameter.",
+    "description": "Options page info text for the structured output setting"
+  },
   "prefs_OptionText_max_prompt_length" : {
     "message": "Max prompt length",
     "description": ""

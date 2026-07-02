@@ -22,8 +22,10 @@
 
 import { OpenAIComp } from '../api/openai_comp.js';
 import { taLogger } from '../mzta-logger.js';
+import { extractStructuredText } from '../api/response-schemas.js';
 
 let openai_comp = null;
+let response_schema = null;
 let stopStreaming = false;
 let i18nStrings = null;
 let do_debug = false;
@@ -34,7 +36,9 @@ let assistantResponseAccumulator = '';
 
 self.onmessage = async function(event) {
     if (event.data.type === 'init') {
-        let config = { stream: true };
+        response_schema = event.data.response_schema || null;
+        // Structured output requests are non-streaming: the whole reply is one JSON object.
+        let config = { stream: !response_schema, response_schema: response_schema };
         for (const key in event.data) {
             if (key.startsWith('openai_comp_')) {
                 let newKey = key.replace('openai_comp_', '');
@@ -69,6 +73,21 @@ self.onmessage = async function(event) {
             }
             postMessage({ type: 'error', payload: i18nStrings["OpenAIComp_api_request_failed"] + ": " + response.status + " " + response.statusText + ", Detail: " + error_message + " " + errorDetail });
             throw new Error("[ThunderAI] OpenAI Comp API request failed: " + response.status + " " + response.statusText + ", Detail: " + error_message + " " + errorDetail);
+        }
+
+        // Structured output: parse the whole (non-streaming) response and
+        // emit it as a single token, then finish.
+        if (response_schema) {
+            let structured_text = '';
+            try {
+                structured_text = extractStructuredText('openai_comp_api', await response.json());
+            } catch (e) {
+                taLog.error("Error parsing structured response: " + e);
+            }
+            conversationHistory.push({ role: 'assistant', content: structured_text });
+            postMessage({ type: 'newToken', payload: { token: structured_text } });
+            postMessage({ type: 'tokensDone' });
+            return;
         }
 
         const reader = response.body.getReader();

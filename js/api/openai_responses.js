@@ -20,6 +20,7 @@
 
 
 import { fetchWithTimeout } from './fetch-utils.js';
+import { toOpenAIResponsesFormat } from './response-schemas.js';
 
 export class OpenAI {
 
@@ -29,6 +30,7 @@ export class OpenAI {
   temperature = '';
   stream = false;
   store = false;
+  response_schema = null;
 
   constructor({
     apiKey = '',
@@ -36,7 +38,8 @@ export class OpenAI {
     developer_messages = '',
     temperature = '',
     stream = false,
-    store = false
+    store = false,
+    response_schema = null
   } = {}) {
     this.apiKey = apiKey;
     this.model = model;
@@ -44,6 +47,7 @@ export class OpenAI {
     this.temperature = temperature;
     this.stream = stream;
     this.store = store;
+    this.response_schema = response_schema;
   }
 
 
@@ -104,6 +108,10 @@ export class OpenAI {
 
     if(this.developer_messages !== ''){
        request_body.instructions = this.developer_messages;
+    }
+
+    if(this.response_schema){
+       request_body.text = toOpenAIResponsesFormat(this.response_schema);
     }
 
     // console.log(">>>>>>>>>>> OpenAI API request: " + JSON.stringify(messages));

@@ -20,6 +20,7 @@
 
 
 import { fetchWithTimeout } from './fetch-utils.js';
+import { toOpenAICompFormat } from './response-schemas.js';
 
 export class OpenAIComp {
 
@@ -29,6 +30,7 @@ export class OpenAIComp {
   use_v1 = true;
   stream = false;
   temperature = '';
+  response_schema = null;
 
   constructor({
     host = '',
@@ -37,6 +39,7 @@ export class OpenAIComp {
     stream = false,
     use_v1 = true,
     temperature = '',
+    response_schema = null,
   } = {}) {
     this.host = (host || '').trim().replace(/\/+$/, "");
     this.model = model;
@@ -44,6 +47,7 @@ export class OpenAIComp {
     this.apiKey = apiKey;
     this.use_v1 = use_v1;
     this.temperature = temperature;
+    this.response_schema = response_schema;
   }
 
 
@@ -109,7 +113,8 @@ export class OpenAIComp {
                 messages: messages,
                 stream: this.stream,
                 ...(maxTokens > 0 ? { 'max_tokens': parseInt(maxTokens) } : {}),
-                ...(this.temperature != '' && !Number.isNaN(tempFloat) ? { 'temperature': tempFloat } : {})
+                ...(this.temperature != '' && !Number.isNaN(tempFloat) ? { 'temperature': tempFloat } : {}),
+                ...(this.response_schema ? { 'response_format': toOpenAICompFormat(this.response_schema) } : {})
             }),
         });
         return response;

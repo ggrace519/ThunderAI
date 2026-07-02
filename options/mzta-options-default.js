@@ -109,6 +109,7 @@ export const prefs_default = {
     reply_type: 'reply_all',
     composing_plain_text: false,
     connection_type: 'chatgpt_web',     //Other values: 'chatgpt_api', 'ollama_api', 'openai_comp_api', 'google_gemini_api'
+    use_structured_output: true,        // Enforce JSON schemas on special-command responses (see js/api/response-schemas.js)
     chatgpt_web_model: '',
     chatgpt_web_tempchat: false,
     chatgpt_web_project: '',

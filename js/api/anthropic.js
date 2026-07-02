@@ -20,6 +20,7 @@
 
 
 import { fetchWithTimeout } from './fetch-utils.js';
+import { toAnthropicTools } from './response-schemas.js';
 
 export class Anthropic {
 
@@ -31,6 +32,7 @@ export class Anthropic {
   max_tokens = 4096;
   extended_thinking_budget = 0;
   stream = false;
+  response_schema = null;
 
   constructor({
     apiKey = '',
@@ -41,6 +43,7 @@ export class Anthropic {
     max_tokens = 4096,
     extended_thinking_budget = 0,
     stream = false,
+    response_schema = null,
   } = {}) {
     this.apiKey = apiKey;
     this.version = version;
@@ -50,6 +53,7 @@ export class Anthropic {
     this.max_tokens = max_tokens > 0 ? max_tokens : 4096;
     this.extended_thinking_budget = extended_thinking_budget;
     this.stream = stream;
+    this.response_schema = response_schema;
   }
 
 
@@ -103,13 +107,19 @@ export class Anthropic {
             };
 
       const thinkingBudget = parseInt(this.extended_thinking_budget);
-      const thinkingEnabled = !Number.isNaN(thinkingBudget) && thinkingBudget > 0;
+      // Forced tool use (structured outputs) is incompatible with extended
+      // thinking, so thinking is skipped when a response schema is set.
+      const thinkingEnabled = !this.response_schema && !Number.isNaN(thinkingBudget) && thinkingBudget > 0;
 
       if (thinkingEnabled) {
         claude_body.thinking = { type: 'enabled', budget_tokens: thinkingBudget };
       } else {
         const tempFloat = parseFloat(this.temperature);
         if(this.temperature != '' && !Number.isNaN(tempFloat)) claude_body.temperature = tempFloat;
+      }
+
+      if (this.response_schema) {
+        Object.assign(claude_body, toAnthropicTools(this.response_schema));
       }
 
       // console.log(">>>>>>>>>>>>>>>>> [ThunderAI] Anthropic API request: " + JSON.stringify(claude_body));

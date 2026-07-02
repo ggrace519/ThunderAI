@@ -52,6 +52,7 @@ import {
      } from './js/mzta-utils.js';
 import { taPromptUtils } from './js/mzta-utils-prompt.js';
 import { mzta_specialCommand } from './js/mzta-special-commands.js';
+import { getSpecialPromptSchema } from './js/api/response-schemas.js';
 import {
     getSpamFilterPrompt,
     getSummarizePrompt,
@@ -955,7 +956,8 @@ async function _generateSpamReportForMessage(headerMessageId, options = {}) {
             llm: getConnectionType(prefs, curr_prompt_spamfilter, 'spamfilter'),
             custom_model: curr_prompt_spamfilter.model ? curr_prompt_spamfilter.model : '',
             do_debug: prefs.do_debug,
-            config: curr_prompt_spamfilter
+            config: curr_prompt_spamfilter,
+            schema: getSpecialPromptSchema('prompt_spamfilter')
         });
         await cmd_spamfilter.initWorker();
 
@@ -1909,7 +1911,8 @@ async function processEmails(args) {
                         llm: getConnectionType(prefs_aats, curr_prompt_add_tags, 'add_tags'),
                         custom_model: curr_prompt_add_tags.model ? curr_prompt_add_tags.model : '',
                         do_debug: prefs_aats.do_debug,
-                        config: curr_prompt_add_tags
+                        config: curr_prompt_add_tags,
+                        schema: getSpecialPromptSchema('prompt_add_tags')
                     });
                     let addTagsInitFailed = false;
                     try {

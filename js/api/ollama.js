@@ -18,6 +18,7 @@
 
 
 import { fetchWithTimeout } from './fetch-utils.js';
+import { toOllamaFormat } from './response-schemas.js';
 
 export class Ollama {
     host = '';
@@ -27,6 +28,7 @@ export class Ollama {
     temperature = '';
     think = false;
     format_json = false;
+    response_schema = null;
 
     constructor({
       host = '',
@@ -36,6 +38,7 @@ export class Ollama {
       temperature = '',
       think = false,
       format_json = false,
+      response_schema = null,
     } = {}) {
       this.host = (host || '').trim().replace(/\/+$/, "");
       this.model = model;
@@ -44,6 +47,7 @@ export class Ollama {
       this.temperature = temperature;
       this.think = think;
       this.format_json = format_json;
+      this.response_schema = response_schema;
     }
 
     fetchModels = async () => {
@@ -98,7 +102,7 @@ export class Ollama {
                 messages: messages,
                 stream: this.stream,
                 think: this.think,
-                ...(this.format_json ? { format: "json" } : {}),
+                ...(this.response_schema ? { format: toOllamaFormat(this.response_schema) } : (this.format_json ? { format: "json" } : {})),
                 ...(this.num_ctx > 0 ? { options: { num_ctx: parseInt(this.num_ctx) } } : {}),
                 ...(this.temperature != '' && !Number.isNaN(tempFloat) ? { options: { temperature: tempFloat } } : {}),
             }),
