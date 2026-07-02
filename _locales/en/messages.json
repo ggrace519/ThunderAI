@@ -756,6 +756,18 @@
     "message": "Forces automatic commands (add tags, spam filter) to return valid JSON directly from the AI, making them much more reliable. Disable only if your OpenAI-compatible server rejects the response_format parameter.",
     "description": "Options page info text for the structured output setting"
   },
+  "prefs_OptionText_prompt_injection_guard": {
+    "message": "Protect prompts from email content",
+    "description": "Options page label for the prompt injection guard setting"
+  },
+  "prefs_OptionText_prompt_injection_guard_Info": {
+    "message": "Wraps email content in security markers so it cannot impersonate your instructions, and warns when an email appears to contain commands aimed at the AI.",
+    "description": "Options page info text for the prompt injection guard setting"
+  },
+  "injection_guard_warning": {
+    "message": "This email contains text that looks like instructions aimed at the AI. The AI has been told to ignore it — review the response with care.",
+    "description": "Warning shown in the chat window when the prompt injection guard detects suspicious content in the email"
+  },
   "prefs_OptionText_max_prompt_length" : {
     "message": "Max prompt length",
     "description": ""

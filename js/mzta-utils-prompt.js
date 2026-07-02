@@ -24,8 +24,25 @@ import {
 } from './mzta-utils.js';
 import { getSpecialPrompts } from './mzta-prompts.js';
 import { prefs_default } from '../options/mzta-options-default.js';
+import * as promptGuard from './mzta-prompt-guard.js';
 
 export const taPromptUtils = {
+
+    async isInjectionGuardEnabled(){
+        let prefs = await browser.storage.sync.get({ prompt_injection_guard: prefs_default.prompt_injection_guard });
+        return prefs.prompt_injection_guard === true;
+    },
+
+    // Wrap every email-derived substitution value between guard markers,
+    // so the model can tell instructions from email data. See mzta-prompt-guard.js.
+    wrapUntrustedSubs(finalSubs, marker){
+        for (const key of promptGuard.UNTRUSTED_PLACEHOLDERS) {
+            if (finalSubs[key]) {
+                finalSubs[key] = promptGuard.wrapUntrusted(finalSubs[key], marker);
+            }
+        }
+        return finalSubs;
+    },
 
     async getDefaultSignature(){
         let prefs = await browser.storage.sync.get({ default_sign_name: prefs_default.default_sign_name });
@@ -48,10 +65,16 @@ export const taPromptUtils = {
             msg_text = {},
             only_typed_text = '',
             only_quoted_text = '',
-            tags_full_list = ["", []]
+            tags_full_list = ["", []],
+            add_guard_preamble = true
         } = args || {};
 
         let fullPrompt = '';
+        // Prompt-injection guard: wrap email-derived content between
+        // randomized markers so a crafted email can't smuggle instructions
+        // to the model (see js/mzta-prompt-guard.js).
+        const guard_enabled = await taPromptUtils.isInjectionGuardEnabled();
+        const guard_marker = promptGuard.makeMarker();
         // When a prompt opts out of sending the rendered email body (e.g. it
         // relies on {%mail_raw_source%} instead), the body must not also be
         // sent — neither the body appended automatically to placeholder-free
@@ -61,8 +84,15 @@ export const taPromptUtils = {
         if(!placeholdersUtils.hasPlaceholder(curr_prompt.text)){
             // no placeholders, do as usual
             const signature = String(curr_prompt.need_signature) === "1" ? await taPromptUtils.getDefaultSignature() : "";
-            const content = dont_send_body ? "" : (selection_text || body_text);
-            fullPrompt = [curr_prompt.text, signature, chatgpt_lang, content ? `"${content}"` : ""].filter(Boolean).join(" ");
+            let content = dont_send_body ? "" : (selection_text || body_text);
+            // The guard markers already delimit the content, so the quotes
+            // are only needed in the unguarded form.
+            if (guard_enabled && content) {
+                content = promptGuard.wrapUntrusted(content, guard_marker);
+            } else if (content) {
+                content = `"${content}"`;
+            }
+            fullPrompt = [curr_prompt.text, signature, chatgpt_lang, content].filter(Boolean).join(" ");
         }else{
             // we have at least a placeholder, do the magic!
             // check if we have custom placeholders
@@ -97,6 +127,9 @@ export const taPromptUtils = {
                 tags_full_list: tags_full_list,
                 dont_send_body: dont_send_body
             });
+            if (guard_enabled) {
+                finalSubs = taPromptUtils.wrapUntrustedSubs(finalSubs, guard_marker);
+            }
             let prefs_ph = await browser.storage.sync.get({ placeholders_use_default_value: prefs_default.placeholders_use_default_value });
             fullPrompt = (placeholdersUtils.replacePlaceholders({
                 text: prompt_text,
@@ -104,6 +137,10 @@ export const taPromptUtils = {
                 use_default_value: prefs_ph.placeholders_use_default_value,
                 skip_additional_text: true
             }) + (String(curr_prompt.need_signature) == "1" ? " " + await taPromptUtils.getDefaultSignature():"") + " " + chatgpt_lang).trim();
+        }
+
+        if (guard_enabled && add_guard_preamble) {
+            fullPrompt = promptGuard.applyPreamble(fullPrompt);
         }
 
         return fullPrompt;
@@ -178,11 +215,16 @@ export const taPromptUtils = {
                 body_text: bodyText,
                 subject_text: entry.fullMessage.headers.subject,
                 msg_text: bodyHtml,
+                // One preamble for the whole multi-email prompt, added below.
+                add_guard_preamble: false,
             }));
         }
 
         const messages_string = messages_list.join(prompt_email_separator_string);
-        const promptText = prompt_string + prompt_email_separator_string + messages_string;
+        let promptText = prompt_string + prompt_email_separator_string + messages_string;
+        if (await taPromptUtils.isInjectionGuardEnabled()) {
+            promptText = promptGuard.applyPreamble(promptText);
+        }
 
         return { promptText, promptInfo: prompt };
     },
@@ -199,17 +241,25 @@ export const taPromptUtils = {
         const bodyHtml = await getMailBody(fullMessage);
         const mailSubject = fullMessage.headers?.subject?.[0] || '';
 
-        const finalSubs = await placeholdersUtils.getPlaceholdersValues({
+        let finalSubs = await placeholdersUtils.getPlaceholdersValues({
             prompt_text: promptText,
             msg_text: { html: bodyHtml.html, text: bodyHtml.text },
             mail_subject: mailSubject,
         });
 
-        const fullPrompt = placeholdersUtils.replacePlaceholders({
+        const guard_enabled = await taPromptUtils.isInjectionGuardEnabled();
+        if (guard_enabled) {
+            finalSubs = taPromptUtils.wrapUntrustedSubs(finalSubs, promptGuard.makeMarker());
+        }
+
+        let fullPrompt = placeholdersUtils.replacePlaceholders({
             text: promptText,
             replacements: finalSubs,
             use_default_value: false,
         });
+        if (guard_enabled) {
+            fullPrompt = promptGuard.applyPreamble(fullPrompt);
+        }
 
         return { promptText: fullPrompt, promptInfo: prompt };
     },

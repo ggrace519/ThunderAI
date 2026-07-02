@@ -51,6 +51,7 @@ import {
     hasSpecificIntegration,
      } from './js/mzta-utils.js';
 import { taPromptUtils } from './js/mzta-utils-prompt.js';
+import { scanPrompt } from './js/mzta-prompt-guard.js';
 import { mzta_specialCommand } from './js/mzta-special-commands.js';
 import { getSpecialPromptSchema } from './js/api/response-schemas.js';
 import {
@@ -951,6 +952,12 @@ async function _generateSpamReportForMessage(headerMessageId, options = {}) {
         });
         taLog.log("Special prompt: " + specialFullPrompt_spamfilter);
 
+        // No wrapped regions when the guard pref is off, so this is a no-op then.
+        const spam_guard_report = scanPrompt(specialFullPrompt_spamfilter);
+        if (spam_guard_report.suspicious) {
+            taLog.warn("[PromptGuard][SpamFilter] Suspicious content in email data: " + JSON.stringify(spam_guard_report.findings));
+        }
+
         let cmd_spamfilter = new mzta_specialCommand({
             prompt: specialFullPrompt_spamfilter,
             llm: getConnectionType(prefs, curr_prompt_spamfilter, 'spamfilter'),
@@ -1082,6 +1089,17 @@ async function openChatGPT(promptText, action, curr_tabId, prompt_name = '', do_
     }
 
     let mailMessage = await browser.messageDisplay.getDisplayedMessage(curr_tabId);
+
+    // Prompt-injection guard: scan the wrapped (email-derived) regions of the
+    // prompt and let the webchat warn the user when the email carries
+    // instruction-like payloads aimed at the AI.
+    if (prefs.prompt_injection_guard) {
+        const guard_report = scanPrompt(promptText);
+        if (guard_report.suspicious) {
+            taLog.warn("[PromptGuard] Suspicious content in email data: " + JSON.stringify(guard_report.findings));
+            prompt_info.injection_findings = guard_report.findings;
+        }
+    }
 
     switch(prefs.connection_type){
         case 'chatgpt_web':
@@ -1904,6 +1922,11 @@ async function processEmails(args) {
                     });
                     specialFullPrompt_add_tags = taPromptUtils.finalizePrompt_add_tags(specialFullPrompt_add_tags, prefs_aats.add_tags_maxnum, prefs_aats.add_tags_force_lang, prefs_aats.default_chatgpt_lang, prefs_aats.add_tags_auto_uselist, prefs_aats.add_tags_auto_uselist_list);
                     taLog.log("Special prompt: " + specialFullPrompt_add_tags);
+                    // No wrapped regions when the guard pref is off, so this is a no-op then.
+                    const tags_guard_report = scanPrompt(specialFullPrompt_add_tags);
+                    if (tags_guard_report.suspicious) {
+                        taLog.warn("[PromptGuard][AddTags] Suspicious content in email data: " + JSON.stringify(tags_guard_report.findings));
+                    }
                     // console.log(">>>>>>>>>> curr_prompt_add_tags.model: " + curr_prompt_add_tags.model);
                     // console.log(">>>>>>>>>>>>>>>>> getConnectionType add_tags:" + JSON.stringify(getConnectionType(prefs_aats, curr_prompt_add_tags, 'add_tags')));
                     let cmd_addTags = new mzta_specialCommand({

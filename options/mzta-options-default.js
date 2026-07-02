@@ -110,6 +110,7 @@ export const prefs_default = {
     composing_plain_text: false,
     connection_type: 'chatgpt_web',     //Other values: 'chatgpt_api', 'ollama_api', 'openai_comp_api', 'google_gemini_api'
     use_structured_output: true,        // Enforce JSON schemas on special-command responses (see js/api/response-schemas.js)
+    prompt_injection_guard: true,       // Wrap email content in boundary markers and warn on instruction-like payloads (see js/mzta-prompt-guard.js)
     chatgpt_web_model: '',
     chatgpt_web_tempchat: false,
     chatgpt_web_project: '',
