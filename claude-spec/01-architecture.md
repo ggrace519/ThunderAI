@@ -276,8 +276,12 @@ buttons tied to their own response.
 | `js/mzta-prompts.js` | Prompt definitions (built-in) and custom prompt loading |
 | `js/mzta-placeholders.js` | Placeholder definitions and resolution logic |
 | `js/mzta-utils.js` | General utilities (email parsing, storage helpers, etc.) |
-| `js/mzta-utils-prompt.js` | Prompt-specific utilities (text truncation, lang injection, `buildSummaryPrompt()` for unified summary prompt assembly, `buildTranslationPrompt()` for translation prompt assembly) |
+| `js/mzta-utils-prompt.js` | Prompt-specific utilities (text truncation, lang injection, `buildSummaryPrompt()` for unified summary prompt assembly, `buildTranslationPrompt()` for translation prompt assembly, prompt-injection-guard wrapping + preamble application) |
+| `js/mzta-prompt-guard.js` | Prompt-injection guard: wraps email-derived content in randomized boundary markers, prepends a hardening preamble, and scans wrapped regions for instruction-like payloads. Pure, unit-tested. See [04-api-integrations.md](04-api-integrations.md#prompt-injection-guard). |
+| `js/api/response-schemas.js` | Structured-output schemas for background special commands + per-provider dialect adapters + non-streaming response extraction. Pure, unit-tested. See [04-api-integrations.md](04-api-integrations.md#structured-outputs). |
+| `js/api/fetch-utils.js` | `fetchWithTimeout(url, options, timeoutMs)` — AbortController-based wrapper used by every API client so a hung connection throws a clear timeout error instead of hanging forever. Default 30s; for streaming requests the timer covers connection setup only and is cleared before the body is consumed. |
 | `js/mzta-compose-script.js` | Content script for compose and message display: injects AI response into compose window, renders unified toolbar (spam badge, summary/translation trigger buttons) and content panels (generic error, spam explanation, summary, translation) in message display via `#mzta-container` |
+| `js/mzta-safe-html.js` | Classic content script loaded just before `mzta-compose-script.js` (all three registration paths in `mzta-background.js`). `mztaAppendSafeAlertHtml(target, html)` renders `sendAlert` messages: i18n strings may use `<b>`/`<strong>`/`<i>`/`<em>`/`<br>`, which are rebuilt without attributes; every other node is reduced to text, so markup in appended error strings (API/model output) never reaches the page. Unit-tested in `test/safe-html.test.js` (happy-dom). |
 | `js/mzta-chatgpt.js` | ChatGPT Web integration (opens browser window, reads DOM) |
 | `js/mzta-special-commands.js` | Handles special prompt actions (add_tags, calendar, task) |
 | `js/mzta-spamreport.js` | Spam filter logic |
