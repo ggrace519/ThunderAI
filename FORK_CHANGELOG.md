@@ -35,6 +35,12 @@ untouched so upstream syncs merge cleanly.
   change.
 
 ### Fixed
+- Auto-tagging and the spam filter no longer fail on newer Claude models
+  (Fable 5.1, Mythos 5.1, Opus 5.5), which reject the forced tool call the fork
+  used to get JSON back, and no longer conflict with thinking on Opus 5,
+  Sonnet 5 and Fable 5. Those models now use Anthropic's native structured
+  outputs, which also keep the user's Effort and thinking settings; older
+  Claude models keep the previous method.
 - `{%mail_plain_text_part%}` (new upstream) is now fenced by the
   prompt-injection guard like the other email-derived placeholders.
 - "Update models" for OpenAI-compatible servers no longer fails silently on

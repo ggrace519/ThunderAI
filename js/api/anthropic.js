@@ -26,7 +26,7 @@ import {
 
 
 import { fetchWithTimeout } from './fetch-utils.js';
-import { toAnthropicTools } from './response-schemas.js';
+import { toAnthropicTools, toAnthropicOutputFormat, anthropicUsesForcedTool } from './response-schemas.js';
 
 export class Anthropic {
 
@@ -129,7 +129,12 @@ export class Anthropic {
         claude_body.temperature = tempFloat;
       }
 
-      if (this.response_schema) {
+      // Structured output: native output_config.format where the model supports
+      // it (compatible with thinking and effort), forced tool use on the older
+      // models. Forced tool use cannot be combined with thinking, so on that
+      // path thinking is never requested (see wantsThinking below).
+      const forcedToolSchema = this.response_schema && anthropicUsesForcedTool(this.model);
+      if (forcedToolSchema) {
         Object.assign(claude_body, toAnthropicTools(this.response_schema));
       }
 
@@ -142,9 +147,7 @@ export class Anthropic {
       }
 
       const thinkingBudget = parseInt(this.extended_thinking_budget);
-      // Forced tool use (structured outputs) is incompatible with extended
-      // thinking, so thinking is never requested when a response schema is set.
-      const wantsThinking = !this.response_schema && !Number.isNaN(thinkingBudget) && thinkingBudget > 0;
+      const wantsThinking = !forcedToolSchema && !Number.isNaN(thinkingBudget) && thinkingBudget > 0;
 
       if(wantsThinking && caps.supportsBudgetTokens && caps.thinkingModes.includes('enabled')) {
         claude_body.thinking = { type: 'enabled', budget_tokens: thinkingBudget };
@@ -162,6 +165,13 @@ export class Anthropic {
       // Every other combination -- a budget set on a model that rejects
       // budget_tokens, thinking off on a model that cannot turn it off -- omits
       // the field entirely, which is always a valid request.
+
+      if (this.response_schema && !forcedToolSchema) {
+        claude_body.output_config = {
+          ...(claude_body.output_config || {}),
+          format: toAnthropicOutputFormat(this.response_schema),
+        };
+      }
 
       // console.log(">>>>>>>>>>>>>>>>> [ThunderAI] Anthropic API request: " + JSON.stringify(claude_body));
 

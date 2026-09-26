@@ -124,8 +124,34 @@ export function toGeminiSchema(schema) {
     return out;
 }
 
-// Anthropic: forced tool use; the model must "call" a tool whose
-// input_schema is our schema, and the structured result arrives as the
+// Anthropic has two dialects. Native structured outputs
+// (output_config.format) work alongside thinking and effort, and are the only
+// option on models that reject forced tool_choice (Claude Fable 5.1, Mythos
+// 5.1, Opus 5.5) or cannot turn thinking off (Fable 5). The older models below
+// predate native support, so they keep forced tool use with thinking off.
+// Every model not listed, including ones released later, takes the native
+// dialect. Source: Anthropic structured-outputs model list, 2026-09.
+const ANTHROPIC_FORCED_TOOL_MODEL_PREFIXES = [
+    'claude-3',
+    'claude-sonnet-4',          // Sonnet 4, 4.5 and 4.6
+    'claude-opus-4-2',          // dated Opus 4 ids (claude-opus-4-2025...)
+    'claude-opus-4-6',
+    'claude-opus-4-7',
+];
+
+export function anthropicUsesForcedTool(model) {
+    const id = String(model || '').trim().toLowerCase();
+    return ANTHROPIC_FORCED_TOOL_MODEL_PREFIXES.some(prefix => id.startsWith(prefix));
+}
+
+// Anthropic native dialect: the value of output_config.format. The reply
+// arrives as a text block holding the JSON object.
+export function toAnthropicOutputFormat(response_schema) {
+    return { type: 'json_schema', schema: response_schema.schema };
+}
+
+// Anthropic legacy dialect: forced tool use; the model must "call" a tool
+// whose input_schema is our schema, and the structured result arrives as the
 // tool_use block's input.
 export function toAnthropicTools(response_schema) {
     return {

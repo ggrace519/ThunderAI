@@ -7,6 +7,8 @@ import {
   toOllamaFormat,
   toGeminiSchema,
   toAnthropicTools,
+  toAnthropicOutputFormat,
+  anthropicUsesForcedTool,
   extractStructuredText,
 } from '../js/api/response-schemas.js';
 
@@ -72,6 +74,10 @@ describe('dialect adapters', () => {
     expect(tools.tools[0].input_schema).toBe(rs.schema);
     expect(tools.tool_choice).toEqual({ type: 'tool', name: 'spam_verdict' });
   });
+
+  it('Anthropic: native output_config.format json_schema', () => {
+    expect(toAnthropicOutputFormat(rs)).toEqual({ type: 'json_schema', schema: rs.schema });
+  });
 });
 
 describe('extractStructuredText', () => {
@@ -105,6 +111,11 @@ describe('extractStructuredText', () => {
     expect(JSON.parse(extractStructuredText('anthropic_api', data))).toEqual({ spamValue: 95, explanation: 'scam' });
   });
 
+  it('Anthropic native: skips a leading thinking block and returns the text JSON', () => {
+    const data = { content: [{ type: 'thinking', thinking: '' }, { type: 'text', text: '{"tags":["a"]}' }] };
+    expect(extractStructuredText('anthropic_api', data)).toBe('{"tags":["a"]}');
+  });
+
   it('Anthropic: falls back to a text block when no tool_use is present', () => {
     const data = { content: [{ type: 'text', text: '{"spamValue":5}' }] };
     expect(extractStructuredText('anthropic_api', data)).toBe('{"spamValue":5}');
@@ -122,5 +133,19 @@ describe('extractStructuredText', () => {
     // plain JSON out means those parsers hit their happy path.
     const text = extractStructuredText('openai_comp_api', { choices: [{ message: { content: '{"tags":["A","B"]}' } }] });
     expect(JSON.parse(text).tags).toEqual(['A', 'B']);
+  });
+});
+
+describe('anthropicUsesForcedTool', () => {
+  it('keeps forced tool use only for models that predate native structured outputs', () => {
+    for (const m of ['claude-sonnet-4-6', 'claude-sonnet-4-5-20250929', 'claude-opus-4-7', 'claude-opus-4-6', 'claude-opus-4-20250514', 'claude-3-5-haiku-latest']) {
+      expect(anthropicUsesForcedTool(m)).toBe(true);
+    }
+  });
+
+  it('uses the native dialect for supported and unknown (newer) models', () => {
+    for (const m of ['claude-opus-5', 'claude-opus-5-5', 'claude-fable-5-1', 'claude-sonnet-5', 'claude-opus-4-8', 'claude-haiku-4-5', 'claude-opus-4-5', 'claude-opus-4-1', 'claude-future-9', '']) {
+      expect(anthropicUsesForcedTool(m)).toBe(false);
+    }
   });
 });
