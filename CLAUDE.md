@@ -66,6 +66,14 @@ User triggers a prompt → `popup/mzta-popup.js` → `browser.runtime.sendMessag
 └── api_webchat/            # Web chat API interface
 ```
 
+## Fork & branch model
+
+This is a fork: `origin` = `ggrace519/ThunderAI`, `upstream` = `micz/ThunderAI` (push disabled locally).
+
+- `develop` is the integration branch and the PR target; `main` only receives promotion PRs from `develop`.
+- Upstream syncs land as a merge (never a rebase) of `upstream/main` on a `chore/merge-upstream-<version>` branch, PR'd into `develop`.
+- Fork changes are logged in `FORK_CHANGELOG.md`. `CHANGELOG.md` is upstream's release notes and is left untouched.
+
 ## Packaging
 
 `package.ps1` (Windows) or `package.py` zips the sources into `thunderai.xpi`; `manifest.json` must sit at the ZIP root. See `PACKAGING.md`.
