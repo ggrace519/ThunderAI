@@ -659,6 +659,7 @@ async function _generateSummaryForMessage(headerMessageId, tabId = null, options
             default_chatgpt_lang: prefs_default.default_chatgpt_lang,
             summarize_max_display_length: prefs_default.summarize_max_display_length,
             summarize_strip_formatting: prefs_default.summarize_strip_formatting,
+            prompt_injection_guard: prefs_default.prompt_injection_guard,
             ...getDynamicSettingsDefaults(['use_specific_integration', 'connection_type'])
         });
 
@@ -706,6 +707,19 @@ async function _generateSummaryForMessage(headerMessageId, tabId = null, options
 
         const { promptText } = await taPromptUtils.buildSummaryPrompt([{ message, fullMessage }]);
 
+        // Prompt-injection guard: scan the wrapped regions so the inline
+        // summary banner can warn the user when the email carried
+        // instruction-like payloads aimed at the AI.
+        let summary_injection_findings = [];
+        if (prefs.prompt_injection_guard) {
+            const guard_report = scanPrompt(promptText);
+            if (prefs.do_debug) taLog.log("[PromptGuard][Summary] scan suspicious=" + guard_report.suspicious + " findings=" + JSON.stringify(guard_report.findings));
+            if (guard_report.suspicious) {
+                summary_injection_findings = guard_report.findings;
+                taLog.warn("[PromptGuard][Summary] Suspicious content in email data: " + JSON.stringify(guard_report.findings));
+            }
+        }
+
         const cmd = new mzta_specialCommand({
             prompt: promptText,
             llm: connectionType,
@@ -723,7 +737,8 @@ async function _generateSummaryForMessage(headerMessageId, tabId = null, options
             summary: cleanedSummary,
             summary_html: summaryHtml,
             summary_date: new Date(),
-            headerMessageId: headerMessageId
+            headerMessageId: headerMessageId,
+            injection_findings: summary_injection_findings
         };
         await summaryStore.saveSummary(summaryData, headerMessageId);
         await _sendIfCurrent(tabId, headerMessageId, { command: "showSummary", data: { ...summaryData, maxDisplayLength: prefs.summarize_max_display_length, stripFormatting: prefs.summarize_strip_formatting } });
@@ -747,6 +762,7 @@ async function _generateTranslationForMessage(headerMessageId, tabId = null, opt
             default_chatgpt_lang: prefs_default.default_chatgpt_lang,
             translate_lang: prefs_default.translate_lang,
             translate_max_display_length: prefs_default.translate_max_display_length,
+            prompt_injection_guard: prefs_default.prompt_injection_guard,
             ...getDynamicSettingsDefaults(['use_specific_integration', 'connection_type'])
         });
 
@@ -797,6 +813,19 @@ async function _generateTranslationForMessage(headerMessageId, tabId = null, opt
         }
         const { promptText } = await taPromptUtils.buildTranslationPrompt(fullMessage);
 
+        // Prompt-injection guard: scan the wrapped regions so the inline
+        // translation banner can warn the user when the email carried
+        // instruction-like payloads aimed at the AI.
+        let translation_injection_findings = [];
+        if (prefs.prompt_injection_guard) {
+            const guard_report = scanPrompt(promptText);
+            if (prefs.do_debug) taLog.log("[PromptGuard][Translation] scan suspicious=" + guard_report.suspicious + " findings=" + JSON.stringify(guard_report.findings));
+            if (guard_report.suspicious) {
+                translation_injection_findings = guard_report.findings;
+                taLog.warn("[PromptGuard][Translation] Suspicious content in email data: " + JSON.stringify(guard_report.findings));
+            }
+        }
+
         const cmd = new mzta_specialCommand({
             prompt: promptText,
             llm: connectionType,
@@ -824,7 +853,8 @@ async function _generateTranslationForMessage(headerMessageId, tabId = null, opt
             translated_subject: translatedSubject,
             translation_status: translationStatus,
             lang: lang,
-            headerMessageId: headerMessageId
+            headerMessageId: headerMessageId,
+            injection_findings: translation_injection_findings
         };
         await translationStore.saveTranslation(translationData, headerMessageId);
         await _sendIfCurrent(tabId, headerMessageId, { command: "showTranslation", data: { ...translationData, maxDisplayLength: prefs.translate_max_display_length } });
