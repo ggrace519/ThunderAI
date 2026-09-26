@@ -18,7 +18,7 @@
 
 
 
-import { fetchWithTimeout } from './fetch-utils.js';
+import { fetchWithTimeout, generationTimeoutMs } from './fetch-utils.js';
 import { toGeminiSchema } from './response-schemas.js';
 
 export class GoogleGemini {
@@ -155,7 +155,7 @@ export class GoogleGemini {
               "Content-Type": "application/json"
           },
           body: JSON.stringify(google_gemini_body),
-      });
+      }, generationTimeoutMs(this.stream));
       return response;
     }catch (error) {
         console.error("[ThunderAI] Google Gemini API request failed: " + error);

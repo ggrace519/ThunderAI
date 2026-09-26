@@ -21,7 +21,7 @@
 import { parseExtraBody } from './api-utils.js';
 
 
-import { fetchWithTimeout } from './fetch-utils.js';
+import { fetchWithTimeout, generationTimeoutMs } from './fetch-utils.js';
 import { toOpenAICompFormat } from './response-schemas.js';
 
 export class OpenAIComp {
@@ -125,7 +125,7 @@ export class OpenAIComp {
                 ...(this.temperature != '' && !Number.isNaN(tempFloat) ? { 'temperature': tempFloat } : {}),
                 ...(this.response_schema ? { 'response_format': toOpenAICompFormat(this.response_schema) } : {})
             }),
-        });
+        }, generationTimeoutMs(this.stream));
         return response;
       }catch (error) {
           console.error("[ThunderAI] OpenAI Comp API request failed: " + error);

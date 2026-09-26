@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { fetchWithTimeout, TA_DEFAULT_TIMEOUT_MS } from '../js/api/fetch-utils.js';
+import { fetchWithTimeout, generationTimeoutMs, TA_DEFAULT_TIMEOUT_MS, TA_NONSTREAM_TIMEOUT_MS } from '../js/api/fetch-utils.js';
+import { Ollama } from '../js/api/ollama.js';
 
 // A mock fetch that resolves immediately with the given value, ignoring the signal.
 function resolvingFetch(value) {
@@ -69,5 +70,42 @@ describe('fetchWithTimeout', () => {
     global.fetch = resolvingFetch({ ok: true });
     await fetchWithTimeout('https://example.test', {}, 5000);
     expect(clearSpy).toHaveBeenCalled();
+  });
+});
+
+describe('generation header deadline', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.useRealTimers();
+  });
+
+  it('allows longer for non-streaming requests', () => {
+    expect(generationTimeoutMs(true)).toBe(TA_DEFAULT_TIMEOUT_MS);
+    expect(generationTimeoutMs(false)).toBe(TA_NONSTREAM_TIMEOUT_MS);
+    expect(TA_NONSTREAM_TIMEOUT_MS).toBeGreaterThan(TA_DEFAULT_TIMEOUT_MS);
+  });
+
+  it('does not cut off a slow non-streaming (structured) generation at 30s', async () => {
+    vi.useFakeTimers();
+    global.fetch = abortAwareFetch();
+    const client = new Ollama({ host: 'http://127.0.0.1:11434', model: 'm', stream: false });
+    let settled = false;
+    const pending = client.fetchResponse([{ role: 'user', content: 'hi' }]).then((r) => { settled = true; return r; });
+    await vi.advanceTimersByTimeAsync(45000);
+    expect(settled).toBe(false);
+    await vi.advanceTimersByTimeAsync(TA_NONSTREAM_TIMEOUT_MS);
+    const out = await pending;
+    expect(out.is_exception).toBe(true);
+    expect(out.error).toContain('timed out');
+  });
+
+  it('still times out a streaming request that sends no headers', async () => {
+    vi.useFakeTimers();
+    global.fetch = abortAwareFetch();
+    const client = new Ollama({ host: 'http://127.0.0.1:11434', model: 'm', stream: true });
+    const pending = client.fetchResponse([{ role: 'user', content: 'hi' }]);
+    await vi.advanceTimersByTimeAsync(TA_DEFAULT_TIMEOUT_MS + 1);
+    const out = await pending;
+    expect(out.is_exception).toBe(true);
   });
 });

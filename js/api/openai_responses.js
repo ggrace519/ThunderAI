@@ -21,7 +21,7 @@
 import { parseExtraBody } from './api-utils.js';
 
 
-import { fetchWithTimeout } from './fetch-utils.js';
+import { fetchWithTimeout, generationTimeoutMs } from './fetch-utils.js';
 import { toOpenAIResponsesFormat } from './response-schemas.js';
 
 export class OpenAI {
@@ -148,7 +148,7 @@ export class OpenAI {
               Authorization: "Bearer "+ this.apiKey
           },
           body: JSON.stringify(request_body),
-      });
+      }, generationTimeoutMs(this.stream));
       return response;
     }catch (error) {
         console.error("[ThunderAI] OpenAI Responses API request failed: " + error);

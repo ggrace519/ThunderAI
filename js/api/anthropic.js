@@ -25,7 +25,7 @@ import {
 } from './anthropic_model_capabilities.js';
 
 
-import { fetchWithTimeout } from './fetch-utils.js';
+import { fetchWithTimeout, generationTimeoutMs } from './fetch-utils.js';
 import { toAnthropicTools, toAnthropicOutputFormat, anthropicUsesForcedTool } from './response-schemas.js';
 
 export class Anthropic {
@@ -194,7 +194,7 @@ export class Anthropic {
               "anthropic-dangerous-direct-browser-access": "true",
           },
           body: JSON.stringify(claude_body),
-      });
+      }, generationTimeoutMs(this.stream));
       return response;
     }catch (error) {
         console.error("[ThunderAI] Claude API request failed: " + error);

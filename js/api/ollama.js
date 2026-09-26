@@ -17,7 +17,7 @@
  */
 
 
-import { fetchWithTimeout } from './fetch-utils.js';
+import { fetchWithTimeout, generationTimeoutMs } from './fetch-utils.js';
 import { toOllamaFormat } from './response-schemas.js';
 
 export class Ollama {
@@ -106,7 +106,7 @@ export class Ollama {
                 ...(this.num_ctx > 0 ? { options: { num_ctx: parseInt(this.num_ctx) } } : {}),
                 ...(this.temperature != '' && !Number.isNaN(tempFloat) ? { options: { temperature: tempFloat } } : {}),
             }),
-        });
+        }, generationTimeoutMs(this.stream));
         return response;
       }catch (error) {
           console.error("[ThunderAI] Ollama API request failed: " + error);

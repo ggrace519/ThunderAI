@@ -22,6 +22,17 @@
 // body is consumed — the timeout guards connection setup, not streaming.
 export const TA_DEFAULT_TIMEOUT_MS = 30000;
 
+// A non-streaming generation only sends its headers once the whole reply is
+// written, so the header deadline above would cut off a slow model. The
+// caller's own deadline (special_command_timeout for background commands)
+// bounds the real wait; this is only a backstop against a hung connection.
+export const TA_NONSTREAM_TIMEOUT_MS = 600000;
+
+// Header deadline for a generation request.
+export function generationTimeoutMs(stream) {
+    return stream ? TA_DEFAULT_TIMEOUT_MS : TA_NONSTREAM_TIMEOUT_MS;
+}
+
 /**
  * fetch() wrapper that aborts if the response headers do not arrive within
  * `timeoutMs`. On timeout it throws a plain Error with a clear message so the

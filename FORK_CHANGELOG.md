@@ -48,6 +48,9 @@ untouched so upstream syncs merge cleanly.
   is on.
 - Gemini auto-tagging and spam filtering read the model's answer instead of
   its reasoning.
+- Auto-tagging and the spam filter no longer time out after 30 seconds on
+  slow (e.g. local) models; the "special command timeout" setting is the limit
+  again.
 - The injection guard now also fences `{%mail_headers:...%}` values and the
   sender, To and Cc names.
 - `{%mail_plain_text_part%}` (new upstream) is now fenced by the
