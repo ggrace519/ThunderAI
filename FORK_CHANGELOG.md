@@ -63,6 +63,10 @@ untouched so upstream syncs merge cleanly.
   hid ThunderAI's panels, including the injection warning.
 - A summary saved from the chat window keeps the prompt-injection warning when
   it is shown above the message.
+- Proofread and rewrite in the compose window no longer treat your own
+  selected draft text as untrusted email data (upstream 5.0 moved these prompts
+  to the selection). This avoided false injection warnings and the risk of the
+  guard's markers ending up in the rewritten mail.
 - The injection guard now also fences `{%mail_headers:...%}` values and the
   sender, To and Cc names.
 - `{%mail_plain_text_part%}` (new upstream) is now fenced by the

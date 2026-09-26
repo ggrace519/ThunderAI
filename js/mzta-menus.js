@@ -364,7 +364,8 @@ export class mzta_Menus {
                 msg_text: msg_text,
                 only_typed_text: only_typed_text,
                 only_quoted_text: only_quoted_text,
-                tags_full_list: tags_full_list
+                tags_full_list: tags_full_list,
+                is_compose: tabs[0].type === 'messageCompose'
             });
 
             curr_prompt.custom_text_array = [];

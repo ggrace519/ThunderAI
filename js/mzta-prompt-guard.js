@@ -104,12 +104,21 @@ export function neutralizeMarkers(text) {
     return String(text).replace(/\[(\s*(?:BEGIN|END)\s+EMAIL\s+DATA)/gi, '(($1');
 }
 
+// In a compose window the selection is the user's own draft text, not email
+// data: it is not wrapped there (the quoted original and the rest of the body
+// still are). Wrapping it would also invite the model to echo the markers into
+// the rewritten/proofread text that goes back into the mail.
+export const COMPOSE_TRUSTED_PLACEHOLDERS = ['selected_text', 'selected_html'];
+
 // Wraps every untrusted value of a placeholder substitution map in place and
 // returns it. Parameterized placeholders are keyed as "id:param" (e.g.
 // "mail_headers:subject"), so the id before the colon decides.
-export function wrapUntrustedSubs(subs, marker) {
+export function wrapUntrustedSubs(subs, marker, { isCompose = false } = {}) {
     for (const key of Object.keys(subs)) {
         const id = key.split(':')[0];
+        if (isCompose && COMPOSE_TRUSTED_PLACEHOLDERS.includes(id)) {
+            continue;
+        }
         if (subs[key] && UNTRUSTED_PLACEHOLDERS.includes(id)) {
             subs[key] = wrapUntrusted(subs[key], marker);
         }

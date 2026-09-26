@@ -37,8 +37,8 @@ export const taPromptUtils = {
 
     // Wrap every email-derived substitution value between guard markers,
     // so the model can tell instructions from email data. See mzta-prompt-guard.js.
-    wrapUntrustedSubs(finalSubs, marker){
-        return promptGuard.wrapUntrustedSubs(finalSubs, marker);
+    wrapUntrustedSubs(finalSubs, marker, options = {}){
+        return promptGuard.wrapUntrustedSubs(finalSubs, marker, options);
     },
 
     async getDefaultSignature(){
@@ -63,7 +63,10 @@ export const taPromptUtils = {
             only_typed_text = '',
             only_quoted_text = '',
             tags_full_list = ["", []],
-            add_guard_preamble = true
+            add_guard_preamble = true,
+            // True when the prompt runs in a compose window: the selection is
+            // then the user's own draft (see COMPOSE_TRUSTED_PLACEHOLDERS).
+            is_compose = false
         } = args || {};
 
         let fullPrompt = '';
@@ -82,9 +85,12 @@ export const taPromptUtils = {
             // no placeholders, do as usual
             const signature = String(curr_prompt.need_signature) === "1" ? await taPromptUtils.getDefaultSignature() : "";
             let content = dont_send_body ? "" : (selection_text || body_text);
+            // A compose selection is the user's own draft (never wrapped); the
+            // compose body still carries the quoted original, so it is.
+            const content_is_trusted = is_compose && selection_text !== '';
             // The guard markers already delimit the content, so the quotes
             // are only needed in the unguarded form.
-            if (guard_enabled && content) {
+            if (guard_enabled && content && !content_is_trusted) {
                 content = promptGuard.wrapUntrusted(content, guard_marker);
             } else if (content) {
                 content = `"${content}"`;
@@ -125,7 +131,7 @@ export const taPromptUtils = {
                 dont_send_body: dont_send_body
             });
             if (guard_enabled) {
-                finalSubs = taPromptUtils.wrapUntrustedSubs(finalSubs, guard_marker);
+                finalSubs = taPromptUtils.wrapUntrustedSubs(finalSubs, guard_marker, { isCompose: is_compose });
             }
             let prefs_ph = await browser.storage.sync.get({ placeholders_use_default_value: prefs_default.placeholders_use_default_value });
             fullPrompt = (placeholdersUtils.replacePlaceholders({
