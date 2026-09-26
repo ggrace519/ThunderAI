@@ -101,6 +101,15 @@ describe('extractStructuredText', () => {
     expect(extractStructuredText('google_gemini_api', data)).toBe('{"tags":["Invoices"]}');
   });
 
+  it('Gemini: skips thought parts and returns the answer', () => {
+    const data = { candidates: [{ content: { parts: [
+      { text: 'Let me think about {"not":"this"}', thought: true },
+      { text: '{"spamValue":80,' },
+      { text: '"explanation":"x"}' },
+    ] } }] };
+    expect(extractStructuredText('google_gemini_api', data)).toBe('{"spamValue":80,"explanation":"x"}');
+  });
+
   it('Ollama: message content', () => {
     const data = { message: { role: 'assistant', content: '{"spamValue":10,"explanation":"newsletter"}' } };
     expect(extractStructuredText('ollama_api', data)).toBe('{"spamValue":10,"explanation":"newsletter"}');

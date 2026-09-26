@@ -180,8 +180,12 @@ export function extractStructuredText(llm, responseData) {
         }
         case 'openai_comp_api':
             return responseData.choices?.[0]?.message?.content ?? '';
-        case 'google_gemini_api':
-            return responseData.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
+        case 'google_gemini_api': {
+            // Parts flagged thought: true carry the model's reasoning (returned
+            // because includeThoughts is requested); the answer is the rest.
+            const parts = responseData.candidates?.[0]?.content?.parts ?? [];
+            return parts.filter(p => !p.thought && typeof p.text === 'string').map(p => p.text).join('');
+        }
         case 'ollama_api':
             return responseData.message?.content ?? '';
         case 'anthropic_api': {
