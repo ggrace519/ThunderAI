@@ -68,6 +68,7 @@ export const ANTHROPIC_MODERN_CAPABILITIES = {
 // defaultThinking: what the API does when the `thinking` field is omitted.
 //   'adaptive' -> thinking runs anyway (and eats into max_tokens)
 //   'none'     -> no thinking, the pre-Sonnet-5 behaviour
+// defaultEffort: present only where the API default is not ANTHROPIC_DEFAULT_EFFORT.
 // disabledThinkingMaxEffort: present only where `thinking: {type:'disabled'}` is
 //   accepted merely up to a given effort level (Opus 5 rejects it at xhigh/max).
 const ANTHROPIC_MODEL_CAPABILITIES = [
@@ -110,6 +111,20 @@ const ANTHROPIC_MODEL_CAPABILITIES = [
   },
 
   // --- Opus ---
+  // Opus 5.5 cannot turn thinking off ({type:'disabled'} is a 400 at every
+  // effort level) and its effort default is medium, not high.
+  {
+    prefix: 'claude-opus-5-5',
+    capabilities: {
+      thinkingModes: ['adaptive'],
+      supportsBudgetTokens: false,
+      supportsSamplingParams: false,
+      supportsEffort: true,
+      effortLevels: ['low', 'medium', 'high', 'xhigh', 'max'],
+      defaultThinking: 'adaptive',
+      defaultEffort: 'medium',
+    },
+  },
   {
     prefix: 'claude-opus-5',
     capabilities: {

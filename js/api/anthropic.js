@@ -130,9 +130,9 @@ export class Anthropic {
       }
 
       // Structured output: native output_config.format where the model supports
-      // it (compatible with thinking and effort), forced tool use on the older
-      // models. Forced tool use cannot be combined with thinking, so on that
-      // path thinking is never requested (see wantsThinking below).
+      // it (the only option on models that reject forced tool_choice), forced
+      // tool use on the older models. Thinking is not requested on either path
+      // (see wantsThinking below).
       const forcedToolSchema = this.response_schema && anthropicUsesForcedTool(this.model);
       if (forcedToolSchema) {
         Object.assign(claude_body, toAnthropicTools(this.response_schema));
@@ -142,18 +142,22 @@ export class Anthropic {
       // configuration keeps producing exactly the request body it produced before.
       const effort = (this.effort || '').trim();
       const effortIsValid = caps.supportsEffort && effort !== '' && caps.effortLevels.includes(effort);
-      if(effortIsValid && effort !== ANTHROPIC_DEFAULT_EFFORT) {
+      const defaultEffort = caps.defaultEffort || ANTHROPIC_DEFAULT_EFFORT;
+      if(effortIsValid && effort !== defaultEffort) {
         claude_body.output_config = { effort: effort };
       }
 
       const thinkingBudget = parseInt(this.extended_thinking_budget);
-      const wantsThinking = !forcedToolSchema && !Number.isNaN(thinkingBudget) && thinkingBudget > 0;
+      // Structured output never asks for thinking: forced tool use rejects it,
+      // and a JSON verdict gains nothing from it (and would clash with a
+      // temperature on models that accept both).
+      const wantsThinking = !this.response_schema && !Number.isNaN(thinkingBudget) && thinkingBudget > 0;
 
       if(wantsThinking && caps.supportsBudgetTokens && caps.thinkingModes.includes('enabled')) {
         claude_body.thinking = { type: 'enabled', budget_tokens: thinkingBudget };
       } else if(!wantsThinking && caps.defaultThinking === 'adaptive'
                 && caps.thinkingModes.includes('disabled')
-                && !effortBlocksDisabledThinking(caps, effortIsValid ? effort : ANTHROPIC_DEFAULT_EFFORT)) {
+                && !effortBlocksDisabledThinking(caps, effortIsValid ? effort : defaultEffort)) {
         // A budget of 0 has always meant "no extended thinking". On models where
         // thinking runs unless told otherwise, that intent has to be sent
         // explicitly now, or max_tokens gets spent on thinking and truncates the
@@ -165,6 +169,12 @@ export class Anthropic {
       // Every other combination -- a budget set on a model that rejects
       // budget_tokens, thinking off on a model that cannot turn it off -- omits
       // the field entirely, which is always a valid request.
+
+      // Extended thinking is incompatible with a modified temperature (a 400 on
+      // models that otherwise accept sampling params, e.g. Haiku 4.5).
+      if(claude_body.thinking?.type === 'enabled') {
+        delete claude_body.temperature;
+      }
 
       if (this.response_schema && !forcedToolSchema) {
         claude_body.output_config = {

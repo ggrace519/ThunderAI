@@ -41,6 +41,15 @@ untouched so upstream syncs merge cleanly.
   Sonnet 5 and Fable 5. Those models now use Anthropic's native structured
   outputs, which also keep the user's Effort and thinking settings; older
   Claude models keep the previous method.
+- Claude Opus 5.5 requests no longer fail: it cannot turn thinking off, and
+  choosing Effort "high" on it is now sent (its default is "medium").
+- Claude requests with a custom temperature and an extended-thinking budget
+  (e.g. Haiku 4.5) no longer fail; the temperature is left out while thinking
+  is on.
+- Gemini auto-tagging and spam filtering read the model's answer instead of
+  its reasoning.
+- The injection guard now also fences `{%mail_headers:...%}` values and the
+  sender, To and Cc names.
 - `{%mail_plain_text_part%}` (new upstream) is now fenced by the
   prompt-injection guard like the other email-derived placeholders.
 - "Update models" for OpenAI-compatible servers no longer fails silently on

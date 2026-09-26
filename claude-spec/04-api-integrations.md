@@ -114,23 +114,26 @@ user in the Advanced options of the connection panel; `parseExtraBody()` in
   ignored field. `getAnthropicModelCapabilities(modelId)` matches by **model ID prefix** (so dated
   variants such as `claude-sonnet-4-5-20250929` resolve to their family, longest prefix first) and
   returns `{thinkingModes, supportsBudgetTokens, supportsSamplingParams, supportsEffort,
-  effortLevels, defaultThinking}`, plus `disabledThinkingMaxEffort` on the one model that needs it.
+  effortLevels, defaultThinking}`, plus `disabledThinkingMaxEffort` on the one model that needs it and
+  `defaultEffort` where the API default is not `high` (Opus 5.5: `medium`; it also cannot disable
+  thinking, so its `thinkingModes` is `['adaptive']`).
   An unknown ID — users can type any model name — falls back to `ANTHROPIC_MODERN_CAPABILITIES`,
   deliberately assuming the *modern* contract: a stale setting then degrades to a valid request,
   whereas assuming the legacy contract would send `temperature`/`budget_tokens` and earn a 400.
   **The table must be updated as new models ship.**
 - **Request body construction** is entirely driven by that table, and every field is opt-in:
-  - `temperature` is sent only when `supportsSamplingParams` and the user set a value. It is now
-    **independent of the thinking configuration** — the old rule that extended thinking suppressed
-    temperature no longer holds, because on newer models temperature is rejected outright regardless.
-  - `thinking: {type:'enabled', budget_tokens: N}` only when `supportsBudgetTokens` and N > 0.
+  - `temperature` is sent only when `supportsSamplingParams` and the user set a value, and is dropped
+    again when `thinking: {type:'enabled'}` ends up in the body: extended thinking rejects a modified
+    temperature on the models that accept both (e.g. Haiku 4.5, Sonnet 4.5/4.6).
+  - `thinking: {type:'enabled', budget_tokens: N}` only when `supportsBudgetTokens` and N > 0, and
+    never on a structured-output request (`response_schema` set).
   - `thinking: {type:'disabled'}` only where it changes something — i.e. `defaultThinking === 'adaptive'`
     (newer models think unless told not to, which silently eats `max_tokens` and truncates the reply).
     On models that already default to no thinking the field stays omitted, so their request bodies are
     byte-identical to what they were before the table existed.
   - `output_config: {effort}` only when `supportsEffort` and the level is valid for that model.
-    Omitted when the level equals `ANTHROPIC_DEFAULT_EFFORT` (`high`), which is the API default —
-    kept behind that named constant so it is easy to change.
+    Omitted when the level equals the model's API default — `caps.defaultEffort`, else
+    `ANTHROPIC_DEFAULT_EFFORT` (`high`).
   - Any other combination omits the field entirely. **A configuration that is impossible for the
     selected model degrades to a valid request, never to a 400.** Stored prefs are never rewritten:
     the user may switch back to an older model, so incompatibility is resolved at request-build time

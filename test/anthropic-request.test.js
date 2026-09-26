@@ -49,4 +49,43 @@ describe('Anthropic structured output request', () => {
     expect(body.output_config?.format).toBeUndefined();
     expect(body.tools).toBeUndefined();
   });
+
+  it('does not request thinking with the native format either', async () => {
+    const body = await sentBody({ model: 'claude-haiku-4-5', temperature: '0.2', extended_thinking_budget: 2048, response_schema: schema });
+    expect(body.thinking).toBeUndefined();
+    expect(body.temperature).toBe(0.2);
+    expect(body.output_config.format.type).toBe('json_schema');
+  });
+});
+
+describe('Anthropic thinking and sampling', () => {
+  it('drops temperature when extended thinking is enabled', async () => {
+    const body = await sentBody({ model: 'claude-haiku-4-5', temperature: '0.2', extended_thinking_budget: 2048 });
+    expect(body.thinking).toEqual({ type: 'enabled', budget_tokens: 2048 });
+    expect(body.temperature).toBeUndefined();
+  });
+
+  it('keeps temperature when thinking is off', async () => {
+    const body = await sentBody({ model: 'claude-haiku-4-5', temperature: '0.2' });
+    expect(body.temperature).toBe(0.2);
+  });
+
+  it('never sends thinking disabled to Opus 5.5', async () => {
+    const body = await sentBody({ model: 'claude-opus-5-5' });
+    expect(body.thinking).toBeUndefined();
+  });
+
+  it('still disables thinking on Opus 5 when no budget is set', async () => {
+    const body = await sentBody({ model: 'claude-opus-5' });
+    expect(body.thinking).toEqual({ type: 'disabled' });
+  });
+
+  it('sends effort high on Opus 5.5, whose default is medium', async () => {
+    const opus55 = await sentBody({ model: 'claude-opus-5-5', effort: 'high' });
+    expect(opus55.output_config).toEqual({ effort: 'high' });
+    const opus55Default = await sentBody({ model: 'claude-opus-5-5', effort: 'medium' });
+    expect(opus55Default.output_config).toBeUndefined();
+    const opus5 = await sentBody({ model: 'claude-opus-5', effort: 'high' });
+    expect(opus5.output_config).toBeUndefined();
+  });
 });
