@@ -82,6 +82,7 @@ import {
     addTags_getExclusionList,
     checkExcludedTag
 } from './js/mzta-addtags-exclusion-list.js';
+import { sanitizePanelPayload } from './js/mzta-richtext.js';
 
 browser.runtime.onInstalled.addListener(({ reason, previousVersion }) => {
     // console.log(">>>>>>>>>>> onInstalled: " + JSON.stringify(reason) + ", previousVersion: " + previousVersion);
@@ -854,7 +855,9 @@ async function _sendIfCurrent(tabId, headerMessageId, payload) {
         // because getDisplayedMessage() still reports the selected message with the
         // pane hidden. sendTabMessageSafe() drops the send quietly - the result stays
         // cached and renders the next time the pane is reachable.
-        sendTabMessageSafe(tabId, payload);
+        // Model HTML (summary / translation) is sanitized here, on the way to
+        // the content script, which renders it as-is - cached results included.
+        sendTabMessageSafe(tabId, sanitizePanelPayload(payload));
     } catch (e) {
         taLog.error("Error in _sendIfCurrent: " + e);
     }

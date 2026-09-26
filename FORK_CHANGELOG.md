@@ -58,6 +58,9 @@ untouched so upstream syncs merge cleanly.
   analysis.
 - "Don't send the email body" now also applies to the "body or selected text"
   placeholders when nothing is selected.
+- Inline translations and summaries are sanitized before they are shown in
+  the message pane. A translated email could previously inject styles that
+  hid ThunderAI's panels, including the injection warning.
 - The injection guard now also fences `{%mail_headers:...%}` values and the
   sender, To and Cc names.
 - `{%mail_plain_text_part%}` (new upstream) is now fenced by the

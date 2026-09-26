@@ -851,7 +851,10 @@ classic-script constraint:
   re-exports** of the projection above (`htmlToLines`/`linesToHtml`/`normalizePlain`/
   `hasLineStructure`) so module-world callers get a clean `import`. The re-exports resolve the global
   at CALL time, so the module loads fine even where the classic script is absent as long as they are
-  not called there.
+  not called there. `sanitizePanelPayload(payload)` applies the block sanitizer to the model HTML of
+  the inline summary / translation panels (`summary_html`, and `translated_text` when it contains
+  tags); `_sendIfCurrent()` in `mzta-background.js` runs every panel payload through it, cached results
+  included, because the content script renders that HTML as-is.
 
 The classic file is a classic script — not an ES module — because `js/mzta-compose-script.js` is
 loaded by `composeScripts.register` / `messageDisplayScripts.register` / `tabs.executeScript`, none
