@@ -126,6 +126,26 @@ function _getThemeColors(spamValue, spamThreshold) {
     return colors;
 }
 
+// Builds the ⚠️ injection-guard warning banner. Returns a DOM element, or
+// null when there is nothing to warn about. Inserted at the top of the inline
+// summary and translation panels when the email carried instruction-like
+// payloads aimed at the AI (findings come from scanPrompt in the background).
+function _renderInjectionWarning(colors, findings) {
+    if (!findings || !Array.isArray(findings) || findings.length === 0) return null;
+    const isDark = colors.isDark;
+    const wc = { bg: isDark ? '#332701' : '#fff3cd', text: isDark ? '#ffeb80' : '#856404', border: isDark ? '#664d03' : '#ffeeba' };
+    const banner = document.createElement('div');
+    banner.style.cssText = `display: flex; align-items: flex-start; gap: 6px; padding: 6px 8px; margin-bottom: 6px; background-color: ${wc.bg}; color: ${wc.text}; border: 1px solid ${wc.border}; border-radius: 4px; font-size: 12px; line-height: 1.4;`;
+    const icon = document.createElement('span');
+    icon.textContent = '\u26A0\uFE0F';
+    icon.style.cssText = 'flex-shrink: 0;';
+    const text = document.createElement('span');
+    text.textContent = browser.i18n.getMessage("injection_guard_warning") + ' (' + findings.map(f => f.id).join(', ') + ')';
+    banner.appendChild(icon);
+    banner.appendChild(text);
+    return banner;
+}
+
 // ── Container / Toolbar / Panels management ─────────────────────────
 function _ensureContainer() {
     let container = document.getElementById('mzta-container');
@@ -620,10 +640,11 @@ switch (message.command) {
       closeButton_sendAlert.textContent = 'Close';
       buttonsDiv.appendChild(closeButton_sendAlert);
 
-      // Create message element
+      // Create message element — i18n strings may use <b>/<br>; the allowlist
+      // in mzta-safe-html.js keeps markup from appended error text out.
       const message_sendAlert = window.document.createElement('div');
       message_sendAlert.classList.add('mzta_dialog_message');
-      message_sendAlert.textContent = message.message;
+      mztaAppendSafeAlertHtml(message_sendAlert, message.message);
 
       // Append elements to the dialog
       content_sendAlert.appendChild(message_sendAlert);
@@ -1379,6 +1400,10 @@ switch (message.command) {
     summaryBody.appendChild(summaryTextWrapper);
     summaryContainer.appendChild(summaryBody);
 
+    // Prompt-injection guard warning (rendered above the summary body).
+    const summaryInjectionWarning = _renderInjectionWarning(colors, summaryData.injection_findings);
+    if (summaryInjectionWarning) summaryContainer.insertBefore(summaryInjectionWarning, summaryBody);
+
     _addPanel('mzta-summary-banner', summaryContainer);
     return Promise.resolve(true);
   }
@@ -1628,6 +1653,10 @@ switch (message.command) {
     }
 
     translationContainer.appendChild(translationTextWrapper);
+
+    // Prompt-injection guard warning (rendered above the translation body).
+    const translationInjectionWarning = _renderInjectionWarning(colors, translationData.injection_findings);
+    if (translationInjectionWarning) translationContainer.insertBefore(translationInjectionWarning, translationTextWrapper);
 
     _addPanel('mzta-translation-banner', translationContainer);
     return Promise.resolve(true);

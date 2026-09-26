@@ -56,6 +56,7 @@ import {
 import {
     transformTagsLabels,
     getCurrentIdentity,
+    getMailFullSource,
     normalizePlainTextPart
 } from './mzta-utils.js';
 
@@ -76,6 +77,14 @@ const defaultPlaceholders = [
         type: 0,
         is_default: "1",
         is_dynamic: "0",
+        enabled: 1,
+    },
+    {
+        id: 'mail_raw_source',
+        name: "__MSG_placeholder_mail_raw_source__",
+        default_value: "",
+        type: 1,
+        is_default: "1",
         enabled: 1,
     },
     {
@@ -628,7 +637,8 @@ export const placeholdersUtils = {
             only_quoted_text = "",
             selection_text = "",
             selection_html = "",
-            tags_full_list = ["", []]
+            tags_full_list = ["", []],
+            dont_send_body = false
         } = args || {};
         let currPHs = await placeholdersUtils.extractPlaceholders(prompt_text);
         // console.log(">>>>>>>>>> currPHs: " + JSON.stringify(currPHs));
@@ -642,6 +652,37 @@ export const placeholdersUtils = {
                     break;
                 case 'mail_html_body':
                     finalSubs['mail_html_body'] = placeholdersUtils.failSafePlaceholders(msg_text?.html);
+                    break;
+                case 'mail_raw_source':
+                    // Full source for safety/phishing checks: complete headers
+                    // (Received chain, SPF/DKIM, Reply-To) + decoded text/HTML body
+                    // + attachment metadata, but WITHOUT the base64 attachment
+                    // payloads that would blow past max_prompt_length.
+                    let raw_source = '';
+                    try {
+                        if(curr_message && curr_message.id != null){
+                            // When the prompt opts out of a separate rendered
+                            // body, append the decoded body inline after the raw
+                            // headers (one clean representation) AND compact it:
+                            // trim headers to the security allow-list and strip
+                            // the HTML body's styling noise to cap token cost
+                            // without losing analyzable context. Otherwise use
+                            // the labelled lean view (headers + "--- body ---" +
+                            // attachment list).
+                            raw_source = await getMailFullSource(curr_message.id, { inlineBody: dont_send_body, clean: dont_send_body });
+                        }
+                    } catch (e) {
+                        // Unavailable when composing or if the message has no id;
+                        // degrade gracefully rather than failing the prompt.
+                    }
+                    // Last-resort fallback: if the message APIs returned nothing,
+                    // use the body we already have from the content script so the
+                    // placeholder is never left unsubstituted (it would otherwise
+                    // leak the literal {%mail_raw_source%} into the prompt).
+                    if(!raw_source || raw_source.trim() === ''){
+                        raw_source = msg_text?.html || body_text || '';
+                    }
+                    finalSubs['mail_raw_source'] = placeholdersUtils.failSafePlaceholders(raw_source);
                     break;
                 case 'mail_plain_text_part':
                     // The original text/plain part, NOT the HTML conversion that feeds
@@ -684,11 +725,12 @@ export const placeholdersUtils = {
                 case 'selected_html':
                     finalSubs['selected_html'] = placeholdersUtils.failSafePlaceholders(selection_html);
                     break;
+                // dont_send_body keeps the selection but drops the body fallback.
                 case 'mail_text_body_or_selected':
-                    finalSubs['mail_text_body_or_selected'] = placeholdersUtils.failSafePlaceholders(selection_text || body_text);
+                    finalSubs['mail_text_body_or_selected'] = placeholdersUtils.failSafePlaceholders(selection_text || (dont_send_body ? '' : body_text));
                     break;
                 case 'mail_html_body_or_selected':
-                    finalSubs['mail_html_body_or_selected'] = placeholdersUtils.failSafePlaceholders(selection_html || msg_text?.html);
+                    finalSubs['mail_html_body_or_selected'] = placeholdersUtils.failSafePlaceholders(selection_html || (dont_send_body ? '' : msg_text?.html));
                     break;
                 case 'author':
                     finalSubs['author'] = placeholdersUtils.failSafePlaceholders(sanitizeMailHeaders(curr_message.author));

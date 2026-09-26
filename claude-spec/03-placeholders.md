@@ -31,6 +31,7 @@ placeholders with `is_dynamic: "1"` (take a parameter after `:`).
 |----|-------------|------|-----|
 | `mail_text_body` | Full plain text of the email | 0 | |
 | `mail_html_body` | Full HTML of the email | 0 | |
+| `mail_raw_source` | Full mail source for safety/phishing analysis: complete headers (Received chain, SPF/DKIM, Reply-To) + decoded text/HTML body + attachment metadata, **without** the base64 attachment payloads that would blow past `max_prompt_length`. Resolved via `getMailFullSource(messageId, opts)` in `js/mzta-utils.js`, which produces a lean view (headers + `--- body ---` + attachment list); when the prompt sets `dont_send_body`, the decoded body is appended inline after the headers and the header block is trimmed to the security-relevant ones. See [Prompt-injection guard](04-api-integrations.md#prompt-injection-guard) — this is an untrusted placeholder and is wrapped in boundary markers when the guard is on. | 0 | |
 | `mail_typed_text` | Text typed so far in compose window (line structure preserved, see below) | 2 | |
 | `mail_quoted_text` | Quoted text in the compose window (line structure preserved, see below) | 2 | |
 | `mail_subject` | Email subject line | 0 | |

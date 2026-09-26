@@ -1,0 +1,29 @@
+# Normalize all text files to LF in the repository and working tree.
+# The repo history is canonical LF; this prevents Windows/WSL editors from
+# reintroducing CRLF churn (see Phase 0 line-ending cleanup).
+* text=auto eol=lf
+
+# Explicit text types (defensive; covered by text=auto but kept for clarity)
+*.js   text eol=lf
+*.json text eol=lf
+*.html text eol=lf
+*.css  text eol=lf
+*.svg  text eol=lf
+*.md   text eol=lf
+*.yml  text eol=lf
+*.yaml text eol=lf
+*.ps1  text eol=crlf
+
+# Binary assets — never normalize
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.gif  binary
+*.ico  binary
+*.webp binary
+*.woff binary
+*.woff2 binary
+*.ttf  binary
+*.eot  binary
+*.xpi  binary
+*.zip  binary

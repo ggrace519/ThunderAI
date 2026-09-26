@@ -331,6 +331,15 @@ browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
     switch (message.command) {
         case "api_send":
             promptData = message;
+            // Prompt-injection guard: the background page scanned the email
+            // content in this prompt; surface its warning before the response.
+            if (message.prompt_info?.injection_findings?.length > 0) {
+                messagesArea.appendUserMessage(
+                    "⚠️ " + browser.i18n.getMessage("injection_guard_warning") +
+                    " (" + message.prompt_info.injection_findings.map(f => f.id).join(", ") + ")",
+                    "info"
+                );
+            }
             //send the received prompt to the llm api
             if(message.do_custom_text=="1") {
                 messageInput._showCustomTextField(message.prompt_info?.custom_text_array);

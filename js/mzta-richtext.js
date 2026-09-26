@@ -130,6 +130,25 @@ export function sanitizeBlockHtml(html) {
     return sanitize(html, { allowBlocks: true });
 }
 
+// Model HTML shown in the message-pane panels (inline summary, inline
+// translation) crosses the same gate here, in the background page, because the
+// content script renders what it receives as-is. Plain-text translations are
+// left untouched: sanitizing them would entity-encode a literal "<" or "&".
+const PANEL_HTML_RE = /<[a-z][^>]*>/i;
+
+export function sanitizePanelPayload(payload) {
+    const data = payload?.data;
+    if (!data) { return payload; }
+    const clean = { ...data };
+    if (typeof clean.summary_html === 'string' && clean.summary_html !== '') {
+        clean.summary_html = sanitizeBlockHtml(clean.summary_html);
+    }
+    if (typeof clean.translated_text === 'string' && PANEL_HTML_RE.test(clean.translated_text)) {
+        clean.translated_text = sanitizeBlockHtml(clean.translated_text);
+    }
+    return { ...payload, data: clean };
+}
+
 // ── Module-world re-exports of the classic DOM projection ────────────────────
 //
 // These forward to the globals defined in js/lib/mzta-html-lines.js. The lookup

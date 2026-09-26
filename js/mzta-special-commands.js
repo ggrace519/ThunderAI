@@ -66,17 +66,20 @@
     do_debug = false;
     config = {};
     timeout_ms = SPECIAL_COMMAND_TIMEOUT_DEFAULT;
+    schema = null;
 
     constructor(args = {}) {
         let {
             prompt = '',
             llm = '',
             do_debug = false,
-            config = {}
+            config = {},
+            schema = null
         } = args;
         this.prompt = prompt;
         this.llm = llm;
         this.config = config;
+        this.schema = schema;
         this.do_debug = do_debug;
         this.logger = new taLogger('mzta_specialCommand', do_debug);
 
@@ -164,6 +167,17 @@
             }
 
             workerInitMessage[prefKey] = value;
+        }
+
+        // Structured output: constrain the model to the command's JSON schema
+        // instead of scraping JSON out of free text (gated on a pref so users
+        // of servers without schema support can turn it off).
+        if (this.schema) {
+            const prefs_so = await browser.storage.sync.get({ use_structured_output: prefs_default.use_structured_output });
+            if (prefs_so.use_structured_output) {
+                workerInitMessage.response_schema = this.schema;
+                this.logger.log("Using structured output schema: " + this.schema.name);
+            }
         }
 
         this.worker.postMessage(workerInitMessage);

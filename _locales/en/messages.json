@@ -143,6 +143,14 @@
     "message": "Available when the \"Action\" is \"Substitute text\".",
     "description": ""
   },
+  "customPrompts_form_label_dont_send_body": {
+    "message": "Don't send the email body",
+    "description": ""
+  },
+  "customPrompts_form_label_dont_send_body_title": {
+    "message": "When enabled, the email body is not sent as a separate section: the auto-appended body and the {%mail_text_body%}/{%mail_html_body%} placeholders are suppressed, and {%mail_raw_source%} appends the decoded body inline right after the headers (one clean representation; attachment/image payloads omitted) instead of a labelled '--- body ---' section. To cap token cost it also trims the headers to the security-relevant ones (From, Reply-To, Authentication-Results, Received, Subject, …) and strips the body's inline CSS/styling, keeping the text, links and image targets a safety check needs.",
+    "description": ""
+  },
   "customPrompts_form_required_fields": {
     "message": "Required fields",
     "description": ""
@@ -272,7 +280,7 @@
     "description": ""
   },
   "msg_prompt_too_long": {
-    "message": "The text you provided is too long. You need to reduce it.",
+    "message": "The text you provided is too long.<br><br>Please reduce it to fit within the <b>Max prompt length</b> limit, then try again.",
     "description": ""
   },
   "prefs_OptionText_release_notes": {
@@ -697,6 +705,10 @@
     "message": "HTML mail body",
     "description": ""
   },
+  "placeholder_mail_raw_source": {
+    "message": "Full mail source (headers + body, attachments omitted)",
+    "description": "Placeholder that inserts the email headers and decoded body for analysis; large attachment payloads are excluded"
+  },
   "placeholder_mail_subject": {
     "message": "Mail subject",
     "description": ""
@@ -796,6 +808,26 @@
   "prefs_OptionText_thinking_summary": {
     "message": "Thinking",
     "description": ""
+  },
+  "prefs_OptionText_use_structured_output": {
+    "message": "Use structured AI responses",
+    "description": "Options page label for the structured output setting"
+  },
+  "prefs_OptionText_use_structured_output_Info": {
+    "message": "Forces automatic commands (add tags, spam filter) to return valid JSON directly from the AI, making them much more reliable. Disable only if your OpenAI-compatible server rejects the response_format parameter.",
+    "description": "Options page info text for the structured output setting"
+  },
+  "prefs_OptionText_prompt_injection_guard": {
+    "message": "Protect prompts from email content",
+    "description": "Options page label for the prompt injection guard setting"
+  },
+  "prefs_OptionText_prompt_injection_guard_Info": {
+    "message": "Wraps email content in security markers so it cannot impersonate your instructions, and warns when an email appears to contain commands aimed at the AI.",
+    "description": "Options page info text for the prompt injection guard setting"
+  },
+  "injection_guard_warning": {
+    "message": "This email contains text that looks like instructions aimed at the AI. The AI has been told to ignore it — review the response with care.",
+    "description": "Warning shown in the chat window when the prompt injection guard detects suspicious content in the email"
   },
   "prefs_OptionText_max_prompt_length" : {
     "message": "Max prompt length",
@@ -2750,7 +2782,7 @@
     "description": "Shown in the translation panel when the message id is missing, so the message body cannot be read"
   },
   "translate_no_language_configured": {
-    "message": "Translation language is not configured. Please set a language in the Translation settings or set a default language in the General settings.",
+    "message": "Translation language is not configured.<br><br>Please set a language in the <b>Translation</b> settings, or set a default language in the <b>General</b> settings.",
     "description": ""
   },
   "translate_skipped": {

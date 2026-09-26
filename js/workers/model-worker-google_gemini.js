@@ -22,8 +22,10 @@
 
 import { GoogleGemini } from '../api/google_gemini.js';
 import { taLogger } from '../mzta-logger.js';
+import { extractStructuredText } from '../api/response-schemas.js';
 
 let google_gemini = null;
+let response_schema = null;
 let stopStreaming = false;
 let i18nStrings = null;
 let do_debug = false;
@@ -35,7 +37,9 @@ let thinkingAccumulator = '';
 
 self.onmessage = async function(event) {
     if (event.data.type === 'init') {
-        let config = { stream: true };
+        response_schema = event.data.response_schema || null;
+        // Structured output requests are non-streaming: the whole reply is one JSON object.
+        let config = { stream: !response_schema, response_schema: response_schema };
         for (const key in event.data) {
             if (key.startsWith('google_gemini_')) {
                 let newKey = key.replace('google_gemini_', '');
@@ -75,6 +79,21 @@ self.onmessage = async function(event) {
             }
             postMessage({ type: 'error', payload: error_text });
             throw new Error("[ThunderAI] Google Gemini API request failed: " + error_text);
+        }
+
+        // Structured output: parse the whole (non-streaming) response and
+        // emit it as a single token, then finish.
+        if (response_schema) {
+            let structured_text = '';
+            try {
+                structured_text = extractStructuredText('google_gemini_api', await response.json());
+            } catch (e) {
+                taLog.error("Error parsing structured response: " + e);
+            }
+            conversationHistory.push({ role: 'model', parts: [{"text": structured_text}] });
+            postMessage({ type: 'newToken', payload: { token: structured_text } });
+            postMessage({ type: 'tokensDone' });
+            return;
         }
 
         const reader = response.body.getReader();

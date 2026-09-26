@@ -21,6 +21,9 @@
 import { parseExtraBody } from './api-utils.js';
 
 
+import { fetchWithTimeout, generationTimeoutMs } from './fetch-utils.js';
+import { toOpenAIResponsesFormat } from './response-schemas.js';
+
 export class OpenAI {
 
   apiKey = '';
@@ -29,6 +32,7 @@ export class OpenAI {
   temperature = '';
   stream = false;
   store = false;
+  response_schema = null;
   reasoning_summary = '';
   reasoning_effort = '';
   extra_body = '';
@@ -40,6 +44,7 @@ export class OpenAI {
     temperature = '',
     stream = false,
     store = false,
+    response_schema = null,
     reasoning_summary = '',
     reasoning_effort = '',
     extra_body = ''
@@ -50,6 +55,7 @@ export class OpenAI {
     this.temperature = temperature;
     this.stream = stream;
     this.store = store;
+    this.response_schema = response_schema;
     this.reasoning_summary = reasoning_summary;
     this.reasoning_effort = reasoning_effort;
     this.extra_body = extra_body;
@@ -58,7 +64,7 @@ export class OpenAI {
 
   fetchModels = async () => {
     try{
-      const response = await fetch("https://api.openai.com/v1/models", {
+      const response = await fetchWithTimeout("https://api.openai.com/v1/models", {
           method: "GET",
           headers: {
               "Content-Type": "application/json",
@@ -128,17 +134,21 @@ export class OpenAI {
        request_body.instructions = this.developer_messages;
     }
 
+    if(this.response_schema){
+       request_body.text = toOpenAIResponsesFormat(this.response_schema);
+    }
+
     // console.log(">>>>>>>>>>> OpenAI API request: " + JSON.stringify(messages));
 
     try {
-      const response = await fetch("https://api.openai.com/v1/responses", {
+      const response = await fetchWithTimeout("https://api.openai.com/v1/responses", {
           method: "POST",
           headers: { 
               "Content-Type": "application/json", 
               Authorization: "Bearer "+ this.apiKey
           },
           body: JSON.stringify(request_body),
-      });
+      }, generationTimeoutMs(this.stream));
       return response;
     }catch (error) {
         console.error("[ThunderAI] OpenAI Responses API request failed: " + error);

@@ -62,7 +62,9 @@ import {
     sendTabMessageSafe,
      } from './js/mzta-utils.js';
 import { taPromptUtils } from './js/mzta-utils-prompt.js';
+import { scanPrompt } from './js/mzta-prompt-guard.js';
 import { mzta_specialCommand } from './js/mzta-special-commands.js';
+import { getSpecialPromptSchema } from './js/api/response-schemas.js';
 import {
     getSpamFilterPrompt,
     getAddTagsPrompt,
@@ -80,6 +82,7 @@ import {
     addTags_getExclusionList,
     checkExcludedTag
 } from './js/mzta-addtags-exclusion-list.js';
+import { sanitizePanelPayload } from './js/mzta-richtext.js';
 
 browser.runtime.onInstalled.addListener(({ reason, previousVersion }) => {
     // console.log(">>>>>>>>>>> onInstalled: " + JSON.stringify(reason) + ", previousVersion: " + previousVersion);
@@ -155,14 +158,15 @@ let summaryStore = new taSummaryStore(prefs_init.do_debug);
 let translationStore = new taTranslationStore(prefs_init.do_debug);
 
 browser.composeScripts.register({
-    // mzta-html-lines.js FIRST: it is a classic script defining the globals
-    // mzta-compose-script.js calls (mztaHtmlNodeToLines). Order is load order.
-    js: [{file: "/js/lib/mzta-html-lines.js"}, {file: "/js/mzta-compose-script.js"}]
+    // mzta-html-lines.js and mzta-safe-html.js FIRST: classic scripts defining the
+    // globals mzta-compose-script.js calls (mztaHtmlNodeToLines,
+    // mztaAppendSafeAlertHtml). Order is load order.
+    js: [{file: "/js/lib/mzta-html-lines.js"}, {file: "/js/lib/mzta-safe-html.js"}, {file: "/js/mzta-compose-script.js"}]
 });
 
 // Register the message display script for all newly opened message tabs.
 messenger.messageDisplayScripts.register({
-    js: [{ file: "js/lib/mzta-html-lines.js" }, { file: "js/mzta-compose-script.js" }]
+    js: [{ file: "js/lib/mzta-html-lines.js" }, { file: "js/lib/mzta-safe-html.js" }, { file: "js/mzta-compose-script.js" }]
 });
 
 browser.contentScripts.register({
@@ -505,7 +509,8 @@ messenger.runtime.onMessage.addListener((message, sender, sendResponse) => {
                             summary: cleanedSummary,
                             summary_html: summaryHtml,
                             summary_date: new Date(),
-                            headerMessageId: msg.headerMessageId
+                            headerMessageId: msg.headerMessageId,
+                            injection_findings: Array.isArray(msg.injection_findings) ? msg.injection_findings : []
                         };
                         await summaryStore.saveSummary(summaryData, msg.headerMessageId);
                         let prefs_summary = await browser.storage.sync.get({
@@ -851,7 +856,9 @@ async function _sendIfCurrent(tabId, headerMessageId, payload) {
         // because getDisplayedMessage() still reports the selected message with the
         // pane hidden. sendTabMessageSafe() drops the send quietly - the result stays
         // cached and renders the next time the pane is reachable.
-        sendTabMessageSafe(tabId, payload);
+        // Model HTML (summary / translation) is sanitized here, on the way to
+        // the content script, which renders it as-is - cached results included.
+        sendTabMessageSafe(tabId, sanitizePanelPayload(payload));
     } catch (e) {
         taLog.error("Error in _sendIfCurrent: " + e);
     }
@@ -949,6 +956,7 @@ async function _generateSummaryForMessage(headerMessageId, tabId = null, options
             default_chatgpt_lang: prefs_default.default_chatgpt_lang,
             summarize_max_display_length: prefs_default.summarize_max_display_length,
             summarize_strip_formatting: prefs_default.summarize_strip_formatting,
+            prompt_injection_guard: prefs_default.prompt_injection_guard,
             ...getDynamicSettingsDefaults(['use_specific_integration', 'connection_type'])
         });
 
@@ -1009,6 +1017,19 @@ async function _generateSummaryForMessage(headerMessageId, tabId = null, options
 
         const { promptText } = await taPromptUtils.buildSummaryPrompt([{ message, fullMessage }]);
 
+        // Prompt-injection guard: scan the wrapped regions so the inline
+        // summary banner can warn the user when the email carried
+        // instruction-like payloads aimed at the AI.
+        let summary_injection_findings = [];
+        if (prefs.prompt_injection_guard) {
+            const guard_report = scanPrompt(promptText);
+            if (prefs.do_debug) taLog.log("[PromptGuard][Summary] scan suspicious=" + guard_report.suspicious + " findings=" + JSON.stringify(guard_report.findings));
+            if (guard_report.suspicious) {
+                summary_injection_findings = guard_report.findings;
+                taLog.warn("[PromptGuard][Summary] Suspicious content in email data: " + JSON.stringify(guard_report.findings));
+            }
+        }
+
         const cmd = new mzta_specialCommand({
             prompt: promptText,
             llm: connectionType,
@@ -1026,7 +1047,8 @@ async function _generateSummaryForMessage(headerMessageId, tabId = null, options
             summary: cleanedSummary,
             summary_html: summaryHtml,
             summary_date: new Date(),
-            headerMessageId: headerMessageId
+            headerMessageId: headerMessageId,
+            injection_findings: summary_injection_findings
         };
         await summaryStore.saveSummary(summaryData, headerMessageId);
         await _sendIfCurrent(tabId, headerMessageId, { command: "showSummary", data: { ...summaryData, maxDisplayLength: prefs.summarize_max_display_length, stripFormatting: prefs.summarize_strip_formatting } });
@@ -1054,6 +1076,7 @@ async function _generateTranslationForMessage(headerMessageId, tabId = null, opt
             default_chatgpt_lang: prefs_default.default_chatgpt_lang,
             translate_lang: prefs_default.translate_lang,
             translate_max_display_length: prefs_default.translate_max_display_length,
+            prompt_injection_guard: prefs_default.prompt_injection_guard,
             ...getDynamicSettingsDefaults(['use_specific_integration', 'connection_type'])
         });
 
@@ -1126,6 +1149,19 @@ async function _generateTranslationForMessage(headerMessageId, tabId = null, opt
         }
         const { promptText } = await taPromptUtils.buildTranslationPrompt(fullMessage, curr_messageId);
 
+        // Prompt-injection guard: scan the wrapped regions so the inline
+        // translation banner can warn the user when the email carried
+        // instruction-like payloads aimed at the AI.
+        let translation_injection_findings = [];
+        if (prefs.prompt_injection_guard) {
+            const guard_report = scanPrompt(promptText);
+            if (prefs.do_debug) taLog.log("[PromptGuard][Translation] scan suspicious=" + guard_report.suspicious + " findings=" + JSON.stringify(guard_report.findings));
+            if (guard_report.suspicious) {
+                translation_injection_findings = guard_report.findings;
+                taLog.warn("[PromptGuard][Translation] Suspicious content in email data: " + JSON.stringify(guard_report.findings));
+            }
+        }
+
         const cmd = new mzta_specialCommand({
             prompt: promptText,
             llm: connectionType,
@@ -1153,7 +1189,8 @@ async function _generateTranslationForMessage(headerMessageId, tabId = null, opt
             translated_subject: translatedSubject,
             translation_status: translationStatus,
             lang: lang,
-            headerMessageId: headerMessageId
+            headerMessageId: headerMessageId,
+            injection_findings: translation_injection_findings
         };
         await translationStore.saveTranslation(translationData, headerMessageId);
         await _sendIfCurrent(tabId, headerMessageId, { command: "showTranslation", data: { ...translationData, maxDisplayLength: prefs.translate_max_display_length } });
@@ -1336,12 +1373,19 @@ async function _generateSpamReportForMessage(headerMessageId, options = {}) {
         });
         taLog.log("Special prompt: " + specialFullPrompt_spamfilter);
 
+        // No wrapped regions when the guard pref is off, so this is a no-op then.
+        const spam_guard_report = scanPrompt(specialFullPrompt_spamfilter);
+        if (spam_guard_report.suspicious) {
+            taLog.warn("[PromptGuard][SpamFilter] Suspicious content in email data: " + JSON.stringify(spam_guard_report.findings));
+        }
+
         let cmd_spamfilter = new mzta_specialCommand({
             prompt: specialFullPrompt_spamfilter,
             llm: spam_conntype,
             custom_model: curr_prompt_spamfilter.model ? curr_prompt_spamfilter.model : '',
             do_debug: prefs.do_debug,
-            config: curr_prompt_spamfilter
+            config: curr_prompt_spamfilter,
+            schema: getSpecialPromptSchema('prompt_spamfilter')
         });
         await cmd_spamfilter.initWorker();
 
@@ -1467,6 +1511,17 @@ async function openChatGPT(promptText, action, curr_tabId, prompt_name = '', do_
     }
 
     let mailMessage = await browser.messageDisplay.getDisplayedMessage(curr_tabId);
+
+    // Prompt-injection guard: scan the wrapped (email-derived) regions of the
+    // prompt and let the webchat warn the user when the email carries
+    // instruction-like payloads aimed at the AI.
+    if (prefs.prompt_injection_guard) {
+        const guard_report = scanPrompt(promptText);
+        if (guard_report.suspicious) {
+            taLog.warn("[PromptGuard] Suspicious content in email data: " + JSON.stringify(guard_report.findings));
+            prompt_info.injection_findings = guard_report.findings;
+        }
+    }
 
     switch(prefs.connection_type){
         case 'chatgpt_web':
@@ -1794,7 +1849,7 @@ async function openChatGPT(promptText, action, curr_tabId, prompt_name = '', do_
                     }
                     //console.log(">>>>>>>>>> sender: " + JSON.stringify(sender));
                     browser.tabs.sendMessage(createdTab.id, { command: "api_send", prompt: promptText, action: action, tabId: curr_tabId, mailMessageId: mailMessageId6, do_custom_text: do_custom_text, prompt_info: prompt_info});
-                    taLog.log('[OpenAI ChatGPT] Connection succeded!');
+                    taLog.log('[Anthropic] Connection succeded!');
                     browser.runtime.onMessage.removeListener(listener6);
                 }
 
@@ -1812,6 +1867,7 @@ async function openChatGPT(promptText, action, curr_tabId, prompt_name = '', do_
             }
 
             applyWindowPositionAndSize(win_options6, prefs);
+
 
             await browser.windows.create(win_options6);
         }
@@ -2251,6 +2307,11 @@ async function processEmails(args) {
                     });
                     specialFullPrompt_add_tags = taPromptUtils.finalizePrompt_add_tags(specialFullPrompt_add_tags, prefs_aats.add_tags_maxnum, prefs_aats.add_tags_force_lang, prefs_aats.default_chatgpt_lang, prefs_aats.add_tags_auto_uselist, prefs_aats.add_tags_auto_uselist_list);
                     taLog.log("Special prompt: " + specialFullPrompt_add_tags);
+                    // No wrapped regions when the guard pref is off, so this is a no-op then.
+                    const tags_guard_report = scanPrompt(specialFullPrompt_add_tags);
+                    if (tags_guard_report.suspicious) {
+                        taLog.warn("[PromptGuard][AddTags] Suspicious content in email data: " + JSON.stringify(tags_guard_report.findings));
+                    }
                     // console.log(">>>>>>>>>> curr_prompt_add_tags.model: " + curr_prompt_add_tags.model);
                     // console.log(">>>>>>>>>>>>>>>>> getConnectionType add_tags:" + addtags_conntype);
                     let cmd_addTags = new mzta_specialCommand({
@@ -2258,7 +2319,8 @@ async function processEmails(args) {
                         llm: addtags_conntype,
                         custom_model: curr_prompt_add_tags.model ? curr_prompt_add_tags.model : '',
                         do_debug: prefs_aats.do_debug,
-                        config: curr_prompt_add_tags
+                        config: curr_prompt_add_tags,
+                        schema: getSpecialPromptSchema('prompt_add_tags')
                     });
                     let addTagsInitFailed = false;
                     try {
@@ -2482,6 +2544,9 @@ for (let messageTab of messageTabs) {
         // Same two files, same order, as the messageDisplayScripts.register above.
         await browser.tabs.executeScript(messageTab.id, {
             file: "js/lib/mzta-html-lines.js"
+        })
+        await browser.tabs.executeScript(messageTab.id, {
+            file: "js/lib/mzta-safe-html.js"
         })
         await browser.tabs.executeScript(messageTab.id, {
             file: "js/mzta-compose-script.js"

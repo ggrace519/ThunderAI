@@ -18,6 +18,9 @@
 
 
 
+import { fetchWithTimeout, generationTimeoutMs } from './fetch-utils.js';
+import { toGeminiSchema } from './response-schemas.js';
+
 export class GoogleGemini {
 
   apiKey = '';
@@ -26,6 +29,7 @@ export class GoogleGemini {
   stream = false;
   thinking_budget = ''; // Model default
   temperature = ''; // no temperature defined
+  response_schema = null;
 
   constructor({
     apiKey = '',
@@ -34,6 +38,7 @@ export class GoogleGemini {
     stream = false,
     thinking_budget = '',
     temperature = '',
+    response_schema = null,
   } = {}) {
     this.apiKey = apiKey;
     this.model = model;
@@ -41,6 +46,7 @@ export class GoogleGemini {
     this.stream = stream;
     this.thinking_budget = String(thinking_budget ?? '').trim();
     this.temperature = String(temperature ?? '').trim();
+    this.response_schema = response_schema;
     /* Info from: https://ai.google.dev/gemini-api/docs/thinking?#set-budget
       # Turn on thinking with a specific token limit: "thinking_budget": 1024
       # Thinking off: "thinking_budget": 0
@@ -55,7 +61,7 @@ export class GoogleGemini {
 
   fetchModels = async () => {
     try{
-      const response = await fetch("https://generativelanguage.googleapis.com/v1beta/models?key=" + this.apiKey, {
+      const response = await fetchWithTimeout("https://generativelanguage.googleapis.com/v1beta/models?key=" + this.apiKey, {
           method: "GET",
           headers: {
               "Content-Type": "application/json"
@@ -136,15 +142,20 @@ export class GoogleGemini {
         google_gemini_body.generationConfig.temperature = tempFloat;
       }
 
+      if(this.response_schema) {
+        google_gemini_body.generationConfig.responseMimeType = 'application/json';
+        google_gemini_body.generationConfig.responseSchema = toGeminiSchema(this.response_schema.schema);
+      }
+
       //  console.log(">>>>>>>>>>>>>>>>> [ThunderAI] Google Gemini API request: " + JSON.stringify(google_gemini_body));
 
-      const response = await fetch("https://generativelanguage.googleapis.com/v1beta/models/" + this.model + ":" + (this.stream ? 'streamGenerateContent?alt=sse&' : 'generateContent?') + "key=" + this.apiKey, {
+      const response = await fetchWithTimeout("https://generativelanguage.googleapis.com/v1beta/models/" + this.model + ":" + (this.stream ? 'streamGenerateContent?alt=sse&' : 'generateContent?') + "key=" + this.apiKey, {
           method: "POST",
           headers: { 
               "Content-Type": "application/json"
           },
           body: JSON.stringify(google_gemini_body),
-      });
+      }, generationTimeoutMs(this.stream));
       return response;
     }catch (error) {
         console.error("[ThunderAI] Google Gemini API request failed: " + error);

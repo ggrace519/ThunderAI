@@ -1383,6 +1383,8 @@ class MessagesArea extends HTMLElement {
                 text: finalText,
                 headerMessageId: promptData.prompt_info.headerMessageId,
                 tabId: promptData.prompt_info.summaryTabId || promptData.tabId,
+                // Carried so the saved summary keeps the prompt-injection warning.
+                injection_findings: promptData.prompt_info.injection_findings || [],
             });
             browser.runtime.sendMessage({command: "chatgpt_close", window_id: (await browser.windows.getCurrent()).id}).catch(() => {});
         });

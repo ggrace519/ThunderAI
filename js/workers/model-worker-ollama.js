@@ -22,8 +22,10 @@
 
 import { Ollama } from '../api/ollama.js';
 import { taLogger } from '../mzta-logger.js';
+import { extractStructuredText } from '../api/response-schemas.js';
 
 let ollama = null;
+let response_schema = null;
 let stopStreaming = false;
 let i18nStrings = null;
 let do_debug = false;
@@ -36,7 +38,9 @@ let thinkingAccumulator = '';
 self.onmessage = async function(event) {
     switch (event.data.type) {
         case 'init':
-            let config = { stream: true };
+            response_schema = event.data.response_schema || null;
+            // Structured output requests are non-streaming: the whole reply is one JSON object.
+            let config = { stream: !response_schema, response_schema: response_schema };
             for (const key in event.data) {
                 if (key.startsWith('ollama_')) {
                     let newKey = key.replace('ollama_', '');
@@ -76,6 +80,21 @@ self.onmessage = async function(event) {
                 }
                 postMessage({ type: 'error', payload: error_text });
                 throw new Error("[ThunderAI] Ollama API request failed: " + error_text);
+            }
+
+            // Structured output: parse the whole (non-streaming) response and
+            // emit it as a single token, then finish.
+            if (response_schema) {
+                let structured_text = '';
+                try {
+                    structured_text = extractStructuredText('ollama_api', await response.json());
+                } catch (e) {
+                    taLog.error("Error parsing structured response: " + e);
+                }
+                conversationHistory.push({ role: 'assistant', content: structured_text });
+                postMessage({ type: 'newToken', payload: { token: structured_text } });
+                postMessage({ type: 'tokensDone' });
+                return;
             }
 
             const reader = response.body.getReader();
@@ -154,10 +173,10 @@ self.onmessage = async function(event) {
                 }
             } catch (error) {
                 if (error instanceof TypeError && error.message.includes('Error in input stream')) {
-                    console.error('[ThudenderAI] The connection to the server was unexpectedly interrupted:', error);
+                    console.error('[ThunderAI] The connection to the server was unexpectedly interrupted:', error);
                     postMessage({ type: 'error', payload: i18nStrings['error_connection_interrupted'] + ": " + error.message });
                 } else {
-                    console.error('[ThudenderAI] Ollama API request failed:', error);
+                    console.error('[ThunderAI] Ollama API request failed:', error);
                     postMessage({ type: 'error', payload: i18nStrings["ollama_api_request_failed"] + ": " + error.message });
                 }
             }

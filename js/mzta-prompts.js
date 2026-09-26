@@ -67,6 +67,11 @@
     "context": Show only in the context menu
     "both": Show in both popup and context menus
     "none": Do not show in any menu
+    Don't send the email body (dont_send_body attribute):
+    0: Send the rendered email body as usual
+    1: Do not send the rendered email body (the auto-appended body and the
+       {%mail_text_body%}/{%mail_html_body%} placeholders are suppressed; use
+       with {%mail_raw_source%} to send only the full source)
 
     ================ USER PROPERTIES
     Enabled (enabled attribute):
@@ -96,7 +101,7 @@
 
 import { integration_options_config } from "../options/mzta-options-default.js";
 
-// The five boolean-ish prompt flags documented above. Canonical representation
+// The boolean-ish prompt flags documented above (dont_send_body is this fork's). Canonical representation
 // is the string "0"/"1" -- that is what the definitions below declare, and what
 // normalizePromptFlags() collapses every stored value back to.
 export const promptBooleanFlags = [
@@ -105,6 +110,7 @@ export const promptBooleanFlags = [
     'need_custom_text',
     'define_response_lang',
     'use_diff_viewer',
+    'dont_send_body',
 ];
 
 const defaultPrompts = [
@@ -601,7 +607,7 @@ async function getDefaultPrompts_withProps() {
                 prompt.position_compose = prefs._default_prompts_properties[prompt.id].position_compose;
                 prompt.position_display = prefs._default_prompts_properties[prompt.id].position_display;
                 prompt.position_context = prefs._default_prompts_properties[prompt.id]?.position_context || prompt.position_display;
-                // need_custom_text is the only one of the five flags persisted for
+                // need_custom_text is the only one of these flags persisted for
                 // default prompts, so it is the only one that can come back out of
                 // domain (older versions wrote "" for a missing value). Assign it
                 // raw here; normalizePromptFlags() below turns a bad value back

@@ -1,0 +1,16 @@
+{
+  "name": "thunderai",
+  "version": "3.7.5",
+  "description": "Development tooling (tests) for the ThunderAI Thunderbird add-on. The add-on itself has no build step.",
+  "private": true,
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "coverage": "vitest run --coverage"
+  },
+  "devDependencies": {
+    "@vitest/coverage-v8": "^4.1.8",
+    "happy-dom": "^20.14.5",
+    "vitest": "^4.1.8"
+  }
+}

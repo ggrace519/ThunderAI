@@ -283,6 +283,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     var checkboxNeedCustomTextNew = document.getElementById('checkboxNeedCustomTextNew');
     var checkboxDefineResponseLangNew = document.getElementById('checkboxDefineResponseLangNew');
     var checkboxUseDiffViewerNew = document.getElementById('checkboxUseDiffViewerNew');
+    var checkboxDontSendBodyNew = document.getElementById('checkboxDontSendBodyNew');
     // ChatGTP Web Integration
     var chatgptWebModelNew = document.getElementById('chatGPTWebModelNew');
     var chatgptWebProjectNew = document.getElementById('chatGPTWebProjectNew');
@@ -321,6 +322,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             need_custom_text: (checkboxNeedCustomTextNew.checked) ? 1 : 0,
             define_response_lang: (checkboxDefineResponseLangNew.checked) ? 1 : 0,
             use_diff_viewer: (checkboxUseDiffViewerNew.checked) ? 1 : 0,
+            dont_send_body: (checkboxDontSendBodyNew.checked) ? 1 : 0,
             position_compose: positionMax_compose + 1,
             position_display: positionMax_display + 1,
             is_default: 0,
@@ -980,6 +982,7 @@ function showItemRowEditor(tr) {
     tr.querySelector('input.need_custom_text').disabled = false;
     tr.querySelector('input.define_response_lang').disabled = false;
     tr.querySelector('input.use_diff_viewer').disabled = false;
+    tr.querySelector('input.dont_send_body').disabled = false;
 }
 
 function hideItemRowEditor(tr) {
@@ -1011,6 +1014,7 @@ function hideItemRowEditor(tr) {
     tr.querySelector('input.need_custom_text').disabled = true;
     tr.querySelector('input.define_response_lang').disabled = true;
     tr.querySelector('input.use_diff_viewer').disabled = true;
+    tr.querySelector('input.dont_send_body').disabled = true;
 }
 
 function toggleAdditionalPropertiesShow(tr) {
@@ -1188,6 +1192,7 @@ function handleConfirmClick(e) {
     newValues.need_custom_text = tr.querySelector('.need_custom_text').checked ? 1 : 0;
     newValues.define_response_lang = tr.querySelector('.define_response_lang').checked ? 1 : 0;
     newValues.use_diff_viewer = tr.querySelector('.use_diff_viewer').checked ? 1 : 0;
+    newValues.dont_send_body = tr.querySelector('.dont_send_body').checked ? 1 : 0;
     newValues.chatgpt_web_model = tr.querySelector('.chatgpt_web_model_output').value.trim();
     newValues.chatgpt_web_project = tr.querySelector('.chatgpt_web_project_output').value.trim();
     newValues.chatgpt_web_custom_gpt = tr.querySelector('.chatgpt_web_custom_gpt_output').value.trim();
@@ -1280,6 +1285,7 @@ function handleCopyClick(e) {
     let need_custom_text = tr.querySelector('.need_custom_text').checked;
     let define_response_lang = tr.querySelector('.define_response_lang').checked;
     let use_diff_viewer = tr.querySelector('.use_diff_viewer').checked;
+    let dont_send_body = tr.querySelector('.dont_send_body').checked;
     
     let chatgpt_web_model = tr.querySelector('.chatgpt_web_model_output').value;
     let chatgpt_web_project = tr.querySelector('.chatgpt_web_project_output').value;
@@ -1303,6 +1309,7 @@ function handleCopyClick(e) {
     document.getElementById('checkboxNeedSignatureNew').checked = need_signature;
     document.getElementById('checkboxNeedCustomTextNew').checked = need_custom_text;
     document.getElementById('checkboxDefineResponseLangNew').checked = define_response_lang;
+    document.getElementById('checkboxDontSendBodyNew').checked = dont_send_body;
     
     let checkboxUseDiffViewerNew = document.getElementById('checkboxUseDiffViewerNew');
     checkboxUseDiffViewerNew.checked = use_diff_viewer;
@@ -1682,7 +1689,7 @@ function loadPromptsList(values){
     }
 
     let options = {
-        valueNames: [ { data: ['idnum'] }, 'is_default', 'id', 'name', 'text', 'type', 'action', 'position_compose', 'position_display', 'show_in', { name: 'need_selected', attr: 'checked_val'}, { name: 'need_signature', attr: 'checked_val'}, { name: 'need_custom_text', attr: 'checked_val'}, { name: 'define_response_lang', attr: 'checked_val'}, { name: 'use_diff_viewer', attr: 'checked_val'}, 'api_type', ...api_fields ],
+        valueNames: [ { data: ['idnum'] }, 'is_default', 'id', 'name', 'text', 'type', 'action', 'position_compose', 'position_display', 'show_in', { name: 'need_selected', attr: 'checked_val'}, { name: 'need_signature', attr: 'checked_val'}, { name: 'need_custom_text', attr: 'checked_val'}, { name: 'define_response_lang', attr: 'checked_val'}, { name: 'use_diff_viewer', attr: 'checked_val'}, { name: 'dont_send_body', attr: 'checked_val'}, 'api_type', ...api_fields ],
         item: function(values) {
             let type_output = '';
             switch(String(values.type)){
@@ -1789,6 +1796,8 @@ function loadPromptsList(values){
                     <label><input type="checkbox" class="define_response_lang" disabled> __MSG_customprompts_form_label_define_response_lang__</label>
                     <br>
                     <label title="__MSG_customPrompts_form_label_use_diff_viewer_title__"><input type="checkbox" class="use_diff_viewer" disabled> __MSG_customPrompts_form_label_use_diff_viewer__</label>
+                    <br>
+                    <label title="__MSG_customPrompts_form_label_dont_send_body_title__"><input type="checkbox" class="dont_send_body" disabled> __MSG_customPrompts_form_label_dont_send_body__</label>
                     <span class="is_default hiddendata"></span>
                     <span class="position_compose hiddendata"></span>
                     <span class="position_display hiddendata"></span>
@@ -1963,6 +1972,7 @@ function clearFields() {
     document.getElementById('checkboxNeedSignatureNew').checked = false;
     document.getElementById('checkboxNeedCustomTextNew').checked = false;
     document.getElementById('checkboxDefineResponseLangNew').checked = false;
+    document.getElementById('checkboxDontSendBodyNew').checked = false;
     document.getElementById('checkboxUseDiffViewerNew').checked = false;
     // The action is reset to '0' above, so the diff viewer flag goes back to
     // being not applicable (same state as on page load).
@@ -2037,6 +2047,7 @@ function checkSelectedBoxes(checkboxes = null) {
             ...document.querySelectorAll('table.prompts_list .need_custom_text[type="checkbox"]'),
             ...document.querySelectorAll('table.prompts_list .define_response_lang[type="checkbox"]'),
             ...document.querySelectorAll('table.prompts_list .use_diff_viewer[type="checkbox"]'),
+            ...document.querySelectorAll('table.prompts_list .dont_send_body[type="checkbox"]'),
         ];
     }
 

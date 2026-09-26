@@ -21,6 +21,9 @@
 import { parseExtraBody } from './api-utils.js';
 
 
+import { fetchWithTimeout, generationTimeoutMs } from './fetch-utils.js';
+import { toOpenAICompFormat } from './response-schemas.js';
+
 export class OpenAIComp {
 
   host = '';
@@ -29,6 +32,7 @@ export class OpenAIComp {
   use_v1 = true;
   stream = false;
   temperature = '';
+  response_schema = null;
   extra_body = '';
 
   constructor({
@@ -38,6 +42,7 @@ export class OpenAIComp {
     stream = false,
     use_v1 = true,
     temperature = '',
+    response_schema = null,
     extra_body = '',
   } = {}) {
     this.host = (host || '').trim().replace(/\/+$/, "");
@@ -46,42 +51,54 @@ export class OpenAIComp {
     this.apiKey = apiKey;
     this.use_v1 = use_v1;
     this.temperature = temperature;
+    this.response_schema = response_schema;
     this.extra_body = extra_body;
   }
 
 
   fetchModels = async () => {
-    const curr_headers = {
-      "Content-Type": "application/json",
-    };
-    if(this.apiKey !== '') curr_headers["Authorization"] = "Bearer "+ this.apiKey;
-    
-    if(this.host.includes('openrouter.ai')) {
-      curr_headers['HTTP-Referer'] = 'https://micz.it/thunderbird-addon-thunderai/';
-      curr_headers['X-Title'] = 'ThunderAI';
+    try {
+      const curr_headers = {
+        "Content-Type": "application/json",
+      };
+      if(this.apiKey !== '') curr_headers["Authorization"] = "Bearer "+ this.apiKey;
+
+      if(this.host.includes('openrouter.ai')) {
+        curr_headers['HTTP-Referer'] = 'https://micz.it/thunderbird-addon-thunderai/';
+        curr_headers['X-Title'] = 'ThunderAI';
+      }
+
+      const response = await fetchWithTimeout(this.host + (this.use_v1 ? "/v1" : "") + "/models", {
+          method: "GET",
+          headers: curr_headers,
+      });
+
+      if (!response.ok) {
+          const errorDetail = await response.text();
+          let err_msg = "[ThunderAI] OpenAI API Comp request failed: " + response.status + " " + response.statusText + ", Detail: " + errorDetail;
+          console.error(err_msg);
+          let output = {};
+          output.ok = false;
+          output.error = errorDetail;
+          return output;
+      }
+
+      let output = {};
+      output.ok = true;
+      let output_response = await response.json();
+      // OpenAI-compatible servers normally return { data: [...] }, but some
+      // return a bare array — normalize so the caller always gets an array.
+      output.response = Array.isArray(output_response) ? output_response : (output_response?.data || []);
+
+      return output;
+    } catch (error) {
+      console.error("[ThunderAI] OpenAI API Comp models request failed: " + error);
+      let output = {};
+      output.is_exception = true;
+      output.ok = false;
+      output.error = "OpenAI API Comp models request failed: " + error;
+      return output;
     }
-
-    const response = await fetch(this.host + (this.use_v1 ? "/v1" : "") + "/models", {
-        method: "GET",
-        headers: curr_headers,
-    });
-
-    if (!response.ok) {
-        const errorDetail = await response.text();
-        let err_msg = "[ThunderAI] OpenAI Comp API request failed: " + response.status + " " + response.statusText + ", Detail: " + errorDetail;
-        console.error(err_msg);
-        let output = {};
-        output.ok = false;
-        output.error = errorDetail;
-        return output;
-    }
-
-    let output = {};
-    output.ok = true;
-    let output_response = await response.json();
-    output.response = output_response.data;
-
-    return output;
   }
 
   fetchResponse = async (messages, maxTokens = 0) => {
@@ -93,7 +110,7 @@ export class OpenAIComp {
       if(this.apiKey !== '') curr_headers["Authorization"] = "Bearer "+ this.apiKey;
 
       try {
-        const response = await fetch(this.host + (this.use_v1 ? "/v1" : "") + "/chat/completions", {
+        const response = await fetchWithTimeout(this.host + (this.use_v1 ? "/v1" : "") + "/chat/completions", {
             method: "POST",
             headers: curr_headers,
             // The user-supplied extra data is spread first on purpose: every
@@ -105,9 +122,10 @@ export class OpenAIComp {
                 messages: messages,
                 stream: this.stream,
                 ...(maxTokens > 0 ? { 'max_tokens': parseInt(maxTokens) } : {}),
-                ...(this.temperature != '' && !Number.isNaN(tempFloat) ? { 'temperature': tempFloat } : {})
+                ...(this.temperature != '' && !Number.isNaN(tempFloat) ? { 'temperature': tempFloat } : {}),
+                ...(this.response_schema ? { 'response_format': toOpenAICompFormat(this.response_schema) } : {})
             }),
-        });
+        }, generationTimeoutMs(this.stream));
         return response;
       }catch (error) {
           console.error("[ThunderAI] OpenAI Comp API request failed: " + error);

@@ -25,6 +25,9 @@ import {
 } from './anthropic_model_capabilities.js';
 
 
+import { fetchWithTimeout, generationTimeoutMs } from './fetch-utils.js';
+import { toAnthropicTools, toAnthropicOutputFormat, anthropicUsesForcedTool } from './response-schemas.js';
+
 export class Anthropic {
 
   apiKey = '';
@@ -36,6 +39,7 @@ export class Anthropic {
   extended_thinking_budget = 0;
   effort = '';
   stream = false;
+  response_schema = null;
 
   constructor({
     apiKey = '',
@@ -47,6 +51,7 @@ export class Anthropic {
     extended_thinking_budget = 0,
     effort = '',
     stream = false,
+    response_schema = null,
   } = {}) {
     this.apiKey = apiKey;
     this.version = version;
@@ -57,12 +62,13 @@ export class Anthropic {
     this.extended_thinking_budget = extended_thinking_budget;
     this.effort = effort;
     this.stream = stream;
+    this.response_schema = response_schema;
   }
 
 
   fetchModels = async () => {
     try{
-      const response = await fetch("https://api.anthropic.com/v1/models", {
+      const response = await fetchWithTimeout("https://api.anthropic.com/v1/models", {
           method: "GET",
           headers: {
               "Content-Type": "application/json",
@@ -123,22 +129,35 @@ export class Anthropic {
         claude_body.temperature = tempFloat;
       }
 
+      // Structured output: native output_config.format where the model supports
+      // it (the only option on models that reject forced tool_choice), forced
+      // tool use on the older models. Thinking is not requested on either path
+      // (see wantsThinking below).
+      const forcedToolSchema = this.response_schema && anthropicUsesForcedTool(this.model);
+      if (forcedToolSchema) {
+        Object.assign(claude_body, toAnthropicTools(this.response_schema));
+      }
+
       // Effort is omitted when it equals the API default, so an untouched
       // configuration keeps producing exactly the request body it produced before.
       const effort = (this.effort || '').trim();
       const effortIsValid = caps.supportsEffort && effort !== '' && caps.effortLevels.includes(effort);
-      if(effortIsValid && effort !== ANTHROPIC_DEFAULT_EFFORT) {
+      const defaultEffort = caps.defaultEffort || ANTHROPIC_DEFAULT_EFFORT;
+      if(effortIsValid && effort !== defaultEffort) {
         claude_body.output_config = { effort: effort };
       }
 
       const thinkingBudget = parseInt(this.extended_thinking_budget);
-      const wantsThinking = !Number.isNaN(thinkingBudget) && thinkingBudget > 0;
+      // Structured output never asks for thinking: forced tool use rejects it,
+      // and a JSON verdict gains nothing from it (and would clash with a
+      // temperature on models that accept both).
+      const wantsThinking = !this.response_schema && !Number.isNaN(thinkingBudget) && thinkingBudget > 0;
 
       if(wantsThinking && caps.supportsBudgetTokens && caps.thinkingModes.includes('enabled')) {
         claude_body.thinking = { type: 'enabled', budget_tokens: thinkingBudget };
       } else if(!wantsThinking && caps.defaultThinking === 'adaptive'
                 && caps.thinkingModes.includes('disabled')
-                && !effortBlocksDisabledThinking(caps, effortIsValid ? effort : ANTHROPIC_DEFAULT_EFFORT)) {
+                && !effortBlocksDisabledThinking(caps, effortIsValid ? effort : defaultEffort)) {
         // A budget of 0 has always meant "no extended thinking". On models where
         // thinking runs unless told otherwise, that intent has to be sent
         // explicitly now, or max_tokens gets spent on thinking and truncates the
@@ -151,9 +170,22 @@ export class Anthropic {
       // budget_tokens, thinking off on a model that cannot turn it off -- omits
       // the field entirely, which is always a valid request.
 
+      // Extended thinking is incompatible with a modified temperature (a 400 on
+      // models that otherwise accept sampling params, e.g. Haiku 4.5).
+      if(claude_body.thinking?.type === 'enabled') {
+        delete claude_body.temperature;
+      }
+
+      if (this.response_schema && !forcedToolSchema) {
+        claude_body.output_config = {
+          ...(claude_body.output_config || {}),
+          format: toAnthropicOutputFormat(this.response_schema),
+        };
+      }
+
       // console.log(">>>>>>>>>>>>>>>>> [ThunderAI] Anthropic API request: " + JSON.stringify(claude_body));
 
-      const response = await fetch("https://api.anthropic.com/v1/messages", {
+      const response = await fetchWithTimeout("https://api.anthropic.com/v1/messages", {
           method: "POST",
           headers: { 
               "Content-Type": "application/json", 
@@ -162,7 +194,7 @@ export class Anthropic {
               "anthropic-dangerous-direct-browser-access": "true",
           },
           body: JSON.stringify(claude_body),
-      });
+      }, generationTimeoutMs(this.stream));
       return response;
     }catch (error) {
         console.error("[ThunderAI] Claude API request failed: " + error);
