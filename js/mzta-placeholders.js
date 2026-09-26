@@ -725,11 +725,12 @@ export const placeholdersUtils = {
                 case 'selected_html':
                     finalSubs['selected_html'] = placeholdersUtils.failSafePlaceholders(selection_html);
                     break;
+                // dont_send_body keeps the selection but drops the body fallback.
                 case 'mail_text_body_or_selected':
-                    finalSubs['mail_text_body_or_selected'] = placeholdersUtils.failSafePlaceholders(selection_text || body_text);
+                    finalSubs['mail_text_body_or_selected'] = placeholdersUtils.failSafePlaceholders(selection_text || (dont_send_body ? '' : body_text));
                     break;
                 case 'mail_html_body_or_selected':
-                    finalSubs['mail_html_body_or_selected'] = placeholdersUtils.failSafePlaceholders(selection_html || msg_text?.html);
+                    finalSubs['mail_html_body_or_selected'] = placeholdersUtils.failSafePlaceholders(selection_html || (dont_send_body ? '' : msg_text?.html));
                     break;
                 case 'author':
                     finalSubs['author'] = placeholdersUtils.failSafePlaceholders(sanitizeMailHeaders(curr_message.author));

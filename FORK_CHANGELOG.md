@@ -56,6 +56,8 @@ untouched so upstream syncs merge cleanly.
 - `{%mail_raw_source%}` no longer mistakes an attached text or HTML file for
   the message body, which could hide the real (e.g. phishing) body from the
   analysis.
+- "Don't send the email body" now also applies to the "body or selected text"
+  placeholders when nothing is selected.
 - The injection guard now also fences `{%mail_headers:...%}` values and the
   sender, To and Cc names.
 - `{%mail_plain_text_part%}` (new upstream) is now fenced by the
