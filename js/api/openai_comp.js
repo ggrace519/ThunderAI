@@ -18,6 +18,8 @@
 
 // Some original methods derived from https://github.com/ali-raheem/Aify/blob/4ece286095ea7a6cf89d696902e6b81b5d1c3a4b/plugin/html/API.js
 
+import { parseExtraBody } from './api-utils.js';
+
 
 import { fetchWithTimeout } from './fetch-utils.js';
 import { toOpenAICompFormat } from './response-schemas.js';
@@ -31,6 +33,7 @@ export class OpenAIComp {
   stream = false;
   temperature = '';
   response_schema = null;
+  extra_body = '';
 
   constructor({
     host = '',
@@ -40,6 +43,7 @@ export class OpenAIComp {
     use_v1 = true,
     temperature = '',
     response_schema = null,
+    extra_body = '',
   } = {}) {
     this.host = (host || '').trim().replace(/\/+$/, "");
     this.model = model;
@@ -48,6 +52,7 @@ export class OpenAIComp {
     this.use_v1 = use_v1;
     this.temperature = temperature;
     this.response_schema = response_schema;
+    this.extra_body = extra_body;
   }
 
 
@@ -108,8 +113,12 @@ export class OpenAIComp {
         const response = await fetchWithTimeout(this.host + (this.use_v1 ? "/v1" : "") + "/chat/completions", {
             method: "POST",
             headers: curr_headers,
-            body: JSON.stringify({ 
-                model: this.model, 
+            // The user-supplied extra data is spread first on purpose: every
+            // parameter ThunderAI manages must win over it, so a wrong entry
+            // cannot change the model or break the streaming.
+            body: JSON.stringify({
+                ...parseExtraBody(this.extra_body),
+                model: this.model,
                 messages: messages,
                 stream: this.stream,
                 ...(maxTokens > 0 ? { 'max_tokens': parseInt(maxTokens) } : {}),
@@ -119,19 +128,19 @@ export class OpenAIComp {
         });
         return response;
       }catch (error) {
-          console.error("[ThunderAI] OpenAI API Comp request failed: " + error);
+          console.error("[ThunderAI] OpenAI Comp API request failed: " + error);
           let output = {};
           output.is_exception = true;
           output.ok = false;
-          output.error = "OpenAI API Comp request failed: " + error;
+          output.error = "OpenAI Comp API request failed: " + error;
           return output;
       }
     }catch (error) {
-        console.error("[ThunderAI] OpenAI API Comp request failed: " + error);
+        console.error("[ThunderAI] OpenAI Comp API request failed: " + error);
         let output = {};
         output.is_exception = true;
         output.ok = false;
-        output.error = "OpenAI API Comp request failed: " + error;
+        output.error = "OpenAI Comp API request failed: " + error;
         return output;
     }
   }

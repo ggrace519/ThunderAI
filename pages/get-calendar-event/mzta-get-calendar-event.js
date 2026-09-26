@@ -27,21 +27,30 @@ import {
 } from "../../js/mzta-prompts.js";
 import {
   getPlaceholders,
-  mapPlaceholderToSuggestion
-} from "../../js/mzta-placeholders.js";
+  mapPlaceholderToSuggestion, placeholdersUtils } from "../../js/mzta-placeholders.js";
 import { textareaAutocomplete } from "../../js/mzta-placeholders-autocomplete.js";
+import { attachEditorHighlight, makeTokenStateResolver } from "../../js/mzta-editor-highlight.js";
 import {
   isAPIKeyValue,
-  setTomSelectBorder
+  setTomSelectBorder,
+  isApiUsableConnection
 } from "../../js/mzta-utils.js";
 import {
-  initializeSpecificIntegrationUI
+  initializeSpecificIntegrationUI,
+  isClosedCatalogueSelect,
+  getConnectionTypeLabel
 } from "../_lib/connection-ui.js";
+import { initTimezoneSelect } from "../_lib/mzta-timezones.js";
+import { initUnsavedGuard } from "../_lib/unsaved-guard.js";
 
 let autocompleteSuggestions = [];
+let activePlaceholders = [];
 let taLog = new taLogger("mzta-get-calendar-event-page",true);
 
 document.addEventListener('DOMContentLoaded', async () => {
+
+    // Warn before leaving the page with unsaved textarea text.
+    initUnsavedGuard();
 
     let specialPrompts = await getSpecialPrompts();
     let get_calendar_event_prompt = specialPrompts.find(prompt => prompt.id === 'prompt_get_calendar_event');
@@ -49,6 +58,17 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (get_calendar_event_prompt && get_calendar_event_prompt.api_type && get_calendar_event_prompt.api_type !== '') {
         let update_prefs = {};
         update_prefs['get_calendar_event_connection_type'] = get_calendar_event_prompt.api_type;
+        // getConnectionType() reads the prefixed connection type only when this flag is on,
+        // so writing the pair one half at a time leaves the value inert. It matters for the
+        // call sites that pass prompt = null (the menu gating in mzta-background.js and the
+        // feature row in mzta-options.js): they have no prompt to fall back on, so the pref
+        // pair is the only way they can see the per-feature connection.
+        // Only for a usable api_type: chatgpt_web has no <option> in the per-prompt select and
+        // isApiUsableConnection() rejects it, so the pair would read as "on" while the feature
+        // stayed hidden from the menus.
+        if (isApiUsableConnection(get_calendar_event_prompt.api_type)) {
+            update_prefs['get_calendar_event_use_specific_integration'] = true;
+        }
         
         let integration = get_calendar_event_prompt.api_type.replace('_api', '');
         if (integration_options_config && integration_options_config[integration]) {
@@ -61,6 +81,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
         await browser.storage.sync.set(update_prefs);
     }
+
+    // Must run before restoreOptions(), which is called by initializeSpecificIntegrationUI()
+    initTimezoneSelect(document.getElementById('calendar_timezone'));
 
     await initializeSpecificIntegrationUI({
       prefix: 'get_calendar_event',
@@ -92,11 +115,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     });
 
-    get_calendar_event_use_specific_integration.addEventListener('change', (event) => {
-        if (!event.target.checked) {
-          browser.storage.sync.set({ get_calendar_event_connection_type: '' });
-        }
-    });
+    // Colour the connection panel to match the selected provider, and hide the
+    // whole panel when "use specific integration" is off (no empty bordered box).
+    let get_calendar_event_conntype_el = document.getElementById('get_calendar_event_connection_type');
+    if (get_calendar_event_conntype_el) {
+        get_calendar_event_conntype_el.addEventListener('change', updateConnPanelTint);
+    }
+    get_calendar_event_use_specific_integration.addEventListener('change', updateConnPanelTint);
+    updateConnPanelTint();
 
     get_calendar_event_no_selection.addEventListener('change', async (event) => {
         if (event.target.checked) {
@@ -164,7 +190,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     get_calendar_event_textarea.value = get_calendar_event_prompt.text;
     get_calendar_event_reset_btn.disabled = (get_calendar_event_textarea.value === browser.i18n.getMessage('prompt_get_calendar_event_full_text'));
 
-    autocompleteSuggestions = (await getPlaceholders(true)).filter(p => !(p.id === 'additional_text')).map(mapPlaceholderToSuggestion);
+    // Full list, kept for token validation. Deliberately NOT filtered like the
+    // suggestions: {%additional_text%} is a real placeholder that this page simply
+    // does not offer, so the editor must not flag it as unknown.
+    activePlaceholders = await getPlaceholders(true);
+    autocompleteSuggestions = activePlaceholders.filter(p => !(p.id === 'additional_text')).map(mapPlaceholderToSuggestion);
+    const get_calendar_event_textarea_hl = attachEditorHighlight(get_calendar_event_textarea);
+    // Flags unknown and unterminated tokens. Type 1 ("reading"),
+    // matching the type_value passed to textareaAutocomplete below.
+    if (get_calendar_event_textarea_hl) get_calendar_event_textarea_hl.setTokenStateResolver(makeTokenStateResolver(
+        placeholdersUtils.findPlaceholder, activePlaceholders, () => 1));
     textareaAutocomplete(get_calendar_event_textarea, autocompleteSuggestions, 1);    // type_value = 1, only when reading an email
 
 });
@@ -172,6 +207,32 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 
 // Methods to manage options, derived from: /options/mzta-options.js
+
+const CONN_TYPES = ["chatgpt_web", "chatgpt_api", "ollama_api", "openai_comp_api", "google_gemini_api", "anthropic_api"];
+
+// Tint the connection panel to match the selected connection type, set the
+// provider pill name, and hide the whole panel when "use specific integration"
+// is off. Scoped to the get_calendar_event prefix.
+function updateConnPanelTint() {
+  let conntype_select = document.getElementById("get_calendar_event_connection_type");
+  let panel = document.getElementById("mzta_conn_panel");
+  let use_specific = document.getElementById("get_calendar_event_use_specific_integration");
+  if (!panel) return;
+
+  panel.style.display = (use_specific && use_specific.checked) ? "" : "none";
+
+  if (!conntype_select) return;
+  let conntype = conntype_select.value;
+  for (let t of CONN_TYPES) {
+    panel.classList.toggle("tint_" + t, conntype === t);
+  }
+  let pillName = document.getElementById("mzta_conn_pill_name");
+  if (pillName) {
+    // Resolved from the shared catalogue, not by scraping the select: populateConnectionTypeOptions()
+    // rebuilds the <option> list with replaceChildren(), so a DOM lookup can transiently miss.
+    pillName.textContent = getConnectionTypeLabel(conntype);
+  }
+}
 
 function saveOptions(e) {
   e.preventDefault();
@@ -228,14 +289,16 @@ async function restoreOptions() {
             const restoreValue = result[element.id] || default_select_value;
             // Check if option exists
             let optionExists = Array.from(element.options).some(opt => opt.value === restoreValue);
+            // Never synthesize an option for a connection select: its catalogue is closed.
+            let canSynthesize = !isClosedCatalogueSelect(element.id);
             if (element.tomselect) {
-              if (!optionExists && restoreValue !== '') {
+              if (!optionExists && restoreValue !== '' && canSynthesize) {
                 element.tomselect.addOption({ value: restoreValue, text: restoreValue });
               }
               element.tomselect.setValue(restoreValue, true);
               setTomSelectBorder(element.tomselect);
             } else {
-              if (!optionExists && restoreValue !== '') {
+              if (!optionExists && restoreValue !== '' && canSynthesize) {
                 let newOption = new Option(restoreValue, restoreValue);
                 element.add(newOption);
               }
@@ -260,7 +323,12 @@ async function restoreOptions() {
       if (get_calendar_event_prompt.api_type && get_calendar_event_prompt.api_type !== '') {
           getting['get_calendar_event_connection_type'] = get_calendar_event_prompt.api_type;
       } else {
-          getting['get_calendar_event_connection_type'] = getting['connection_type'];
+          // Inherit the global connection only when this select can actually offer it:
+          // chatgpt_web has no <option> here (it has no API), so inheriting it would show
+          // a value the control cannot represent. Leave it blank instead.
+          getting['get_calendar_event_connection_type'] = isApiUsableConnection(getting['connection_type'])
+              ? getting['connection_type']
+              : '';
       }
       for (const [integration, options] of Object.entries(integration_options_config)) {
           for (const key of Object.keys(options)) {

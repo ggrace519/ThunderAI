@@ -24,9 +24,9 @@ import {
 } from "../../js/mzta-prompts.js";
 import {
   getPlaceholders,
-  mapPlaceholderToSuggestion
- } from "../../js/mzta-placeholders.js";
+  mapPlaceholderToSuggestion, placeholdersUtils } from "../../js/mzta-placeholders.js";
 import { textareaAutocomplete } from "../../js/mzta-placeholders-autocomplete.js";
+import { attachEditorHighlight, makeTokenStateResolver } from "../../js/mzta-editor-highlight.js";
 import {
   addTags_getExclusionList,
   addTags_setExclusionList
@@ -35,16 +35,24 @@ import {
   getAccountsList,
   normalizeStringList,
   isAPIKeyValue,
-  setTomSelectBorder
+  setTomSelectBorder,
+  isApiUsableConnection
 } from "../../js/mzta-utils.js";
 import {
-  initializeSpecificIntegrationUI
+  initializeSpecificIntegrationUI,
+  isClosedCatalogueSelect,
+  getConnectionTypeLabel
 } from "../_lib/connection-ui.js";
+import { initUnsavedGuard } from "../_lib/unsaved-guard.js";
 
 let autocompleteSuggestions = [];
+let activePlaceholders = [];
 let taLog = new taLogger("mzta-addtags-page",true);
 
 document.addEventListener('DOMContentLoaded', async () => {
+
+  // Warn before leaving the page with unsaved textarea text.
+  initUnsavedGuard();
 
   let specialPrompts = await getSpecialPrompts();
   let addtags_prompt = specialPrompts.find(prompt => prompt.id === 'prompt_add_tags');
@@ -52,7 +60,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (addtags_prompt && addtags_prompt.api_type && addtags_prompt.api_type !== '') {
         let update_prefs = {};
         update_prefs['add_tags_connection_type'] = addtags_prompt.api_type;
-        
+        // getConnectionType() reads the prefixed connection type only when this flag is on,
+        // so writing the pair one half at a time leaves the value inert. It matters for the
+        // call sites that pass prompt = null (the menu gating in mzta-background.js and the
+        // feature row in mzta-options.js): they have no prompt to fall back on, so the pref
+        // pair is the only way they can see the per-feature connection.
+        // Only for a usable api_type: chatgpt_web has no <option> in the per-prompt select and
+        // isApiUsableConnection() rejects it, so the pair would read as "on" while the feature
+        // stayed hidden from the menus.
+        if (isApiUsableConnection(addtags_prompt.api_type)) {
+            update_prefs['add_tags_use_specific_integration'] = true;
+        }
+
         let integration = addtags_prompt.api_type.replace('_api', '');
         if (integration_options_config && integration_options_config[integration]) {
              for (const key of Object.keys(integration_options_config[integration])) {
@@ -94,28 +113,37 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     });
 
-    add_tags_use_specific_integration.addEventListener('change', (event) => {
-        if (!event.target.checked) {
-          browser.storage.sync.set({ add_tags_connection_type: '' });
-        }
-    });
+    // Colour the connection panel to match the selected provider, and hide the
+    // whole panel when "use specific integration" is off (no empty bordered box).
+    let add_tags_conntype_el = document.getElementById('add_tags_connection_type');
+    if (add_tags_conntype_el) {
+        add_tags_conntype_el.addEventListener('change', updateConnPanelTint);
+    }
+    add_tags_use_specific_integration.addEventListener('change', updateConnPanelTint);
+    updateConnPanelTint();
 
     let add_tags_auto_el = document.getElementById('add_tags_auto');
     let add_tags_auto_only_inbox_tr = document.getElementById('add_tags_auto_only_inbox_tr');
+    let add_tags_auto_include_sent_tr = document.getElementById('add_tags_auto_include_sent_tr');
     let account_selector_container = document.getElementById('account_selector_container');
     let add_tags_auto_infoline = document.getElementById('add_tags_auto_infoline');
     let add_tags_auto_uselist_tr = document.getElementById('add_tags_auto_uselist_tr');
+    // The sub-rows are hidden by a CSS rule (see mzta-add-tags.css) so they don't flash before
+    // this runs. Setting style.display = '' only *removes* the inline value, which falls back to
+    // that rule and leaves the row hidden, so each element must be revealed with the explicit
+    // display its own layout needs: 'flex' for the .feature_row rows and for the .mzta_field
+    // allow-list wrapper (a column flexbox), 'block' for the .mzta_section account card.
+    function toggleAutoSubRows(visible) {
+      add_tags_auto_only_inbox_tr.style.display = visible ? 'flex' : 'none';
+      add_tags_auto_include_sent_tr.style.display = visible ? 'flex' : 'none';
+      account_selector_container.style.display = visible ? 'block' : 'none';
+      add_tags_auto_infoline.style.display = visible ? 'inline' : 'none';
+      add_tags_auto_uselist_tr.style.display = visible ? 'flex' : 'none';
+    }
     add_tags_auto_el.addEventListener('click', (event) => {
-      add_tags_auto_only_inbox_tr.style.display = event.target.checked ? 'table-row' : 'none';
-      account_selector_container.style.display = event.target.checked ? 'block' : 'none';
-      add_tags_auto_infoline.style.display = event.target.checked ? 'inline' : 'none';
-      add_tags_auto_uselist_tr.style.display = event.target.checked ? 'table-row' : 'none';
-
+      toggleAutoSubRows(event.target.checked);
     });
-    add_tags_auto_only_inbox_tr.style.display = add_tags_auto_el.checked ? 'table-row' : 'none';
-    account_selector_container.style.display = add_tags_auto_el.checked ? 'block' : 'none';
-    add_tags_auto_infoline.style.display = add_tags_auto_el.checked ? 'inline' : 'none';
-    add_tags_auto_uselist_tr.style.display = add_tags_auto_el.checked ? 'table-row' : 'none';
+    toggleAutoSubRows(add_tags_auto_el.checked);
 
     let add_tags_auto_uselist = document.getElementById('add_tags_auto_uselist');
     let add_tags_auto_uselist_list = document.getElementById('add_tags_auto_uselist_list');
@@ -152,7 +180,16 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     updateAdditionalPromptStatements();
 
-    autocompleteSuggestions = (await getPlaceholders(true)).filter(p => !(p.id === 'additional_text')).map(mapPlaceholderToSuggestion);
+    // Full list, kept for token validation. Deliberately NOT filtered like the
+    // suggestions: {%additional_text%} is a real placeholder that this page simply
+    // does not offer, so the editor must not flag it as unknown.
+    activePlaceholders = await getPlaceholders(true);
+    autocompleteSuggestions = activePlaceholders.filter(p => !(p.id === 'additional_text')).map(mapPlaceholderToSuggestion);
+    const addtags_textarea_hl = attachEditorHighlight(addtags_textarea);
+    // Flags unknown and unterminated tokens. Type 1 ("reading"),
+    // matching the type_value passed to textareaAutocomplete below.
+    if (addtags_textarea_hl) addtags_textarea_hl.setTokenStateResolver(makeTokenStateResolver(
+        placeholdersUtils.findPlaceholder, activePlaceholders, () => 1));
     textareaAutocomplete(addtags_textarea, autocompleteSuggestions, 1);    // type_value = 1, only when reading an email
 
     let excl_list_textarea = document.getElementById('addtags_excl_list');
@@ -267,6 +304,33 @@ async function updateAdditionalPromptStatements(){
 
 // Methods to manage options, derived from: /options/mzta-options.js
 
+const CONN_TYPES = ["chatgpt_web", "chatgpt_api", "ollama_api", "openai_comp_api", "google_gemini_api", "anthropic_api"];
+
+// Tint the connection panel (border/background/pill) to match the selected
+// connection type, set the provider pill name, and hide the whole panel when
+// the "use specific integration" checkbox is off. Mirrors the summarize page,
+// scoped to the add_tags prefix.
+function updateConnPanelTint() {
+  let conntype_select = document.getElementById("add_tags_connection_type");
+  let panel = document.getElementById("mzta_conn_panel");
+  let use_specific = document.getElementById("add_tags_use_specific_integration");
+  if (!panel) return;
+
+  panel.style.display = (use_specific && use_specific.checked) ? "" : "none";
+
+  if (!conntype_select) return;
+  let conntype = conntype_select.value;
+  for (let t of CONN_TYPES) {
+    panel.classList.toggle("tint_" + t, conntype === t);
+  }
+  let pillName = document.getElementById("mzta_conn_pill_name");
+  if (pillName) {
+    // Resolved from the shared catalogue, not by scraping the select: populateConnectionTypeOptions()
+    // rebuilds the <option> list with replaceChildren(), so a DOM lookup can transiently miss.
+    pillName.textContent = getConnectionTypeLabel(conntype);
+  }
+}
+
 function saveOptions(e) {
   e.preventDefault();
   let options = {};
@@ -331,14 +395,16 @@ async function restoreOptions() {
             const restoreValue = result[element.id] || default_select_value;
             // Check if option exists
             let optionExists = Array.from(element.options).some(opt => opt.value === restoreValue);
+            // Never synthesize an option for a connection select: its catalogue is closed.
+            let canSynthesize = !isClosedCatalogueSelect(element.id);
             if (element.tomselect) {
-              if (!optionExists && restoreValue !== '') {
+              if (!optionExists && restoreValue !== '' && canSynthesize) {
                 element.tomselect.addOption({ value: restoreValue, text: restoreValue });
               }
               element.tomselect.setValue(restoreValue, true);
               setTomSelectBorder(element.tomselect);
             } else {
-              if (!optionExists && restoreValue !== '') {
+              if (!optionExists && restoreValue !== '' && canSynthesize) {
                 let newOption = new Option(restoreValue, restoreValue);
                 element.add(newOption);
               }
@@ -363,7 +429,12 @@ async function restoreOptions() {
       if (addtags_prompt.api_type && addtags_prompt.api_type !== '') {
           getting['add_tags_connection_type'] = addtags_prompt.api_type;
       } else {
-          getting['add_tags_connection_type'] = getting['connection_type'];
+          // Inherit the global connection only when this select can actually offer it:
+          // chatgpt_web has no <option> here (it has no API), so inheriting it would show
+          // a value the control cannot represent. Leave it blank instead.
+          getting['add_tags_connection_type'] = isApiUsableConnection(getting['connection_type'])
+              ? getting['connection_type']
+              : '';
       }
       for (const [integration, options] of Object.entries(integration_options_config)) {
           for (const key of Object.keys(options)) {

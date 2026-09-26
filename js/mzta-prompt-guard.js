@@ -48,6 +48,7 @@ export const UNTRUSTED_PLACEHOLDERS = [
     'mail_text_body_or_selected',
     'mail_html_body_or_selected',
     'mail_raw_source',
+    'mail_plain_text_part',
     'mail_quoted_text',
     'mail_subject',
     'mail_headers',

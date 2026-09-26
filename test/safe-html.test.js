@@ -8,7 +8,7 @@ import { dirname, join } from 'node:path';
 // hand back the global it defines.
 let appendSafe;
 beforeAll(() => {
-  const src = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '../js/mzta-safe-html.js'), 'utf8');
+  const src = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '../js/lib/mzta-safe-html.js'), 'utf8');
   appendSafe = new Function(`${src}\nreturn mztaAppendSafeAlertHtml;`)();
 });
 

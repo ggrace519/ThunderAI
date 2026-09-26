@@ -1,4 +1,9 @@
-import { describe, it, expect } from 'vitest';
+// @vitest-environment happy-dom
+import { describe, it, expect, beforeAll } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
+import { runInThisContext } from 'node:vm';
 import {
   cleanupNewlines,
   convertNewlinesToBr,
@@ -7,7 +12,7 @@ import {
   sanitizeHtml,
   stripHtmlKeepLines,
   checkIfTagLabelExists,
-  checkAPIIntegration,
+  hasNoConnectionSelected,
   hasSpecificIntegration,
   getConnectionType,
   isAPIKeyValue,
@@ -15,6 +20,13 @@ import {
   sanitizeChatGPTModelData,
   getLanguageDisplayName,
 } from '../js/mzta-utils.js';
+
+// The text helpers in mzta-utils.js forward to globals defined by the classic
+// script js/lib/mzta-html-lines.js (loaded by a <script> tag in the real pages).
+beforeAll(() => {
+  const src = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '../js/lib/mzta-html-lines.js'), 'utf8');
+  runInThisContext(src);
+});
 
 describe('cleanupNewlines', () => {
   it('normalizes CRLF, collapses blank lines and trims', () => {
@@ -62,9 +74,12 @@ describe('sanitizeHtml', () => {
 });
 
 describe('stripHtmlKeepLines', () => {
-  it('converts <br> and </p> to newlines and drops other tags', () => {
-    expect(stripHtmlKeepLines('<p>one</p><p>two</p>')).toBe('one\ntwo');
+  // Upstream 5.0 contract: a <p> paragraph becomes a blank line, every other
+  // block boundary and <br> a single newline; other tags are dropped.
+  it('keeps paragraphs as blank lines, <br> and blocks as single newlines', () => {
+    expect(stripHtmlKeepLines('<p>one</p><p>two</p>')).toBe('one\n\ntwo');
     expect(stripHtmlKeepLines('a<br>b')).toBe('a\nb');
+    expect(stripHtmlKeepLines('<div>a</div><div><b>b</b></div>')).toBe('a\nb');
   });
 });
 
@@ -79,14 +94,14 @@ describe('checkIfTagLabelExists', () => {
   });
 });
 
-describe('checkAPIIntegration', () => {
-  it('is true for any non chatgpt_web connection', () => {
-    expect(checkAPIIntegration('anthropic_api', false, '')).toBe(true);
-  });
-  it('for chatgpt_web requires a specific integration', () => {
-    expect(checkAPIIntegration('chatgpt_web', false, '')).toBe(false);
-    expect(checkAPIIntegration('chatgpt_web', true, 'openai_comp_api')).toBe(true);
-    expect(checkAPIIntegration('chatgpt_web', true, '')).toBe(false);
+describe('hasNoConnectionSelected', () => {
+  it('is true only when no connection type is set', () => {
+    expect(hasNoConnectionSelected('')).toBe(true);
+    expect(hasNoConnectionSelected('  ')).toBe(true);
+    expect(hasNoConnectionSelected(undefined)).toBe(true);
+    expect(hasNoConnectionSelected(null)).toBe(true);
+    expect(hasNoConnectionSelected('anthropic_api')).toBe(false);
+    expect(hasNoConnectionSelected('chatgpt_web')).toBe(false);
   });
 });
 

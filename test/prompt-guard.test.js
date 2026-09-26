@@ -144,6 +144,7 @@ describe('UNTRUSTED_PLACEHOLDERS', () => {
   it('covers the email-derived placeholders and not the user-typed ones', () => {
     expect(UNTRUSTED_PLACEHOLDERS).toContain('mail_text_body');
     expect(UNTRUSTED_PLACEHOLDERS).toContain('mail_raw_source');
+    expect(UNTRUSTED_PLACEHOLDERS).toContain('mail_plain_text_part');
     expect(UNTRUSTED_PLACEHOLDERS).toContain('mail_subject');
     expect(UNTRUSTED_PLACEHOLDERS).not.toContain('additional_text');
     expect(UNTRUSTED_PLACEHOLDERS).not.toContain('mail_typed_text');

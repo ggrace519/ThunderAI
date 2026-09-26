@@ -16,7 +16,7 @@
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-// Classic content script (loaded before mzta-compose-script.js), not a module.
+// Classic content script (loaded before js/mzta-compose-script.js), not a module.
 //
 // Alert messages are i18n strings that may carry light formatting (<b>, <br>),
 // but callers also append raw error text that can contain API or model output.

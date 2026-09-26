@@ -11,12 +11,13 @@ ThunderAI is a **Thunderbird WebExtension (Manifest V2)** that integrates multip
 ## Key Rules
 
 1. **Localization:** Modify ONLY `_locales/en/messages.json`. All other locale files are managed via Weblate — never touch them.
-2. **No build system:** There is no bundler or compiler. All JS files are plain ES6 modules loaded directly by the browser engine.
-3. **Module imports:** Use relative paths with `.js` extension (e.g., `import { foo } from '../js/mzta-utils.js'`).
-4. **Placeholder format:** Placeholders in prompt text use the `{%placeholder_id%}` syntax (e.g., `{%mail_text_body_or_selected%}`).
-5. **Tests:** This fork carries a Vitest harness for pure logic (`npm test`, files in `test/`, config in `vitest.config.mjs`). It covers pure utility functions and streaming parsers only; UI and WebExtension behavior are still tested manually in Thunderbird (`about:debugging` → Load Temporary Add-on → `manifest.json`).
-6. **Settings defaults:** All new preferences must be added to `options/mzta-options-default.js` in `prefs_default`.
-7. **Keep spec files up to date:** When making code changes that affect a subsystem described in claude-spec/, update the relevant spec file to reflect the new behavior. Read the spec before modifying, update it after.
+2. **`LANG.md` is the release packaging allowlist, not a locale inventory.** It lists only the translations complete enough to ship, and is therefore a *deliberately partial* subset of `_locales/` — locales below the release bar are omitted on purpose. It is maintained by hand: add a locale when its translation is approved for release. Do not "fix" it to match `_locales/`.
+3. **No build system:** There is no bundler or compiler. All JS files are plain ES6 modules loaded directly by the browser engine. (`package.json` exists only for this fork's dev tooling — tests — and is not part of the add-on.)
+4. **Module imports:** Use relative paths with `.js` extension (e.g., `import { foo } from '../js/mzta-utils.js'`).
+5. **Placeholder format:** Placeholders in prompt text use the `{%placeholder_id%}` syntax (e.g., `{%mail_text_body_or_selected%}`).
+6. **Tests:** This fork carries a Vitest harness for pure logic (`npm test`, files in `test/`, config in `vitest.config.mjs`; DOM-level tests opt into happy-dom per file). It covers pure utility functions, streaming parsers and small DOM helpers; UI and WebExtension behavior are still tested manually in Thunderbird (`about:debugging` → Load Temporary Add-on → `manifest.json`).
+7. **Settings defaults:** All new preferences must be added to `options/mzta-options-default.js` in `prefs_default`.
+8. **Keep spec files up to date:** When making code changes that affect a subsystem described in claude-spec/, update the relevant spec file to reflect the new behavior. Read the spec before modifying, update it after.
 
 ## Data flow
 
@@ -53,12 +54,13 @@ User triggers a prompt → `popup/mzta-popup.js` → `browser.runtime.sendMessag
 │   ├── summarize/
 │   ├── translate/
 │   ├── onboarding/
+│   ├── setup-wizard/       # First-run guided connection setup
 │   └── _lib/               # Shared libraries used by pages
 ├── popup/                  # Popup menu (shown on toolbar click)
 │   └── mzta-popup.html/.js/.css
 ├── _locales/               # Localization
 │   ├── en/messages.json    # ← ONLY THIS FILE is edited directly
-│   └── [15 other languages managed by Weblate]
+│   └── [all other languages managed by Weblate — see `_locales/` for the current set]
 ├── images/                 # Icons and graphical assets
 ├── test/                   # Vitest unit tests (this fork; pure logic only)
 └── api_webchat/            # Web chat API interface
@@ -78,4 +80,5 @@ For detailed documentation see [`claude-spec/`](claude-spec/):
 - [04-api-integrations.md](claude-spec/04-api-integrations.md) — AI provider integrations
 - [05-options.md](claude-spec/05-options.md) — Settings and preferences system
 - [06-localization.md](claude-spec/06-localization.md) — i18n rules and workflow
+- [07-diff-picker.md](claude-spec/07-diff-picker.md) — Interactive change picker for proofreading (hunk model, compose invariant)
 - [99-thunderbird-team-spec.md](claude-spec/99-thunderbird-team-spec.md) — Thunderbird WebExtensions development guidelines (API usage, experiments, review requirements)
