@@ -51,6 +51,8 @@ untouched so upstream syncs merge cleanly.
 - Auto-tagging and the spam filter no longer time out after 30 seconds on
   slow (e.g. local) models; the "special command timeout" setting is the limit
   again.
+- Ollama: setting a temperature no longer silently discards the configured
+  context length (`num_ctx`).
 - The injection guard now also fences `{%mail_headers:...%}` values and the
   sender, To and Cc names.
 - `{%mail_plain_text_part%}` (new upstream) is now fenced by the
