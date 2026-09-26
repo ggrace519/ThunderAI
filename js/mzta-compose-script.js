@@ -550,10 +550,11 @@ switch (message.command) {
       closeButton_sendAlert.textContent = 'Close';
       buttonsDiv.appendChild(closeButton_sendAlert);
 
-      // Create message element
+      // Create message element — i18n strings may use <b>/<br>; the allowlist
+      // in mzta-safe-html.js keeps markup from appended error text out.
       const message_sendAlert = window.document.createElement('div');
       message_sendAlert.classList.add('mzta_dialog_message');
-      message_sendAlert.textContent = message.message;
+      mztaAppendSafeAlertHtml(message_sendAlert, message.message);
 
       // Append elements to the dialog
       content_sendAlert.appendChild(message_sendAlert);

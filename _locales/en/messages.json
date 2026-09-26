@@ -296,7 +296,7 @@
     "description": ""
   },
   "msg_prompt_too_long": {
-    "message": "The text you provided is too long. You need to reduce it.",
+    "message": "The text you provided is too long.<br><br>Please reduce it to fit within the <b>Max prompt length</b> limit, then try again.",
     "description": ""
   },
   "prefs_OptionText_release_notes": {
@@ -2358,7 +2358,7 @@
     "description": ""
   },
   "translate_no_language_configured": {
-    "message": "Translation language is not configured. Please set a language in the Translation settings or set a default language in the General settings.",
+    "message": "Translation language is not configured.<br><br>Please set a language in the <b>Translation</b> settings, or set a default language in the <b>General</b> settings.",
     "description": ""
   },
   "translate_skipped": {

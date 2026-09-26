@@ -113,12 +113,12 @@ let special_prompts_ids = getActiveSpecialPromptsIDs({
   });
 
 browser.composeScripts.register({
-    js: [{file: "/js/mzta-compose-script.js"}]
+    js: [{file: "/js/mzta-safe-html.js"}, {file: "/js/mzta-compose-script.js"}]
 });
 
 // Register the message display script for all newly opened message tabs.
 messenger.messageDisplayScripts.register({
-    js: [{ file: "js/mzta-compose-script.js" }]
+    js: [{ file: "js/mzta-safe-html.js" }, { file: "js/mzta-compose-script.js" }]
 });
 
 browser.contentScripts.register({
@@ -2158,6 +2158,9 @@ for (let messageTab of messageTabs) {
         continue;
     }
     try {
+        await browser.tabs.executeScript(messageTab.id, {
+            file: "js/mzta-safe-html.js"
+        })
         await browser.tabs.executeScript(messageTab.id, {
             file: "js/mzta-compose-script.js"
         })
