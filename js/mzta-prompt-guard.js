@@ -41,8 +41,12 @@
 
 // Placeholder ids whose values come from the email and are therefore
 // untrusted. mail_typed_text / additional_text are the user's own typing
-// and stay untouched.
+// and stay untouched. The address fields are included because the sender
+// controls every display name in From, To and Cc.
 export const UNTRUSTED_PLACEHOLDERS = [
+    'author',
+    'recipients',
+    'cc_list',
     'mail_text_body',
     'mail_html_body',
     'mail_text_body_or_selected',
@@ -98,6 +102,19 @@ export function makeMarker() {
 // cannot close our region early and inject text outside the boundary.
 export function neutralizeMarkers(text) {
     return String(text).replace(/\[(\s*(?:BEGIN|END)\s+EMAIL\s+DATA)/gi, '(($1');
+}
+
+// Wraps every untrusted value of a placeholder substitution map in place and
+// returns it. Parameterized placeholders are keyed as "id:param" (e.g.
+// "mail_headers:subject"), so the id before the colon decides.
+export function wrapUntrustedSubs(subs, marker) {
+    for (const key of Object.keys(subs)) {
+        const id = key.split(':')[0];
+        if (subs[key] && UNTRUSTED_PLACEHOLDERS.includes(id)) {
+            subs[key] = wrapUntrusted(subs[key], marker);
+        }
+    }
+    return subs;
 }
 
 export function wrapUntrusted(text, marker) {

@@ -38,12 +38,7 @@ export const taPromptUtils = {
     // Wrap every email-derived substitution value between guard markers,
     // so the model can tell instructions from email data. See mzta-prompt-guard.js.
     wrapUntrustedSubs(finalSubs, marker){
-        for (const key of promptGuard.UNTRUSTED_PLACEHOLDERS) {
-            if (finalSubs[key]) {
-                finalSubs[key] = promptGuard.wrapUntrusted(finalSubs[key], marker);
-            }
-        }
-        return finalSubs;
+        return promptGuard.wrapUntrustedSubs(finalSubs, marker);
     },
 
     async getDefaultSignature(){
