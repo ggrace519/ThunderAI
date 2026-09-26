@@ -509,7 +509,8 @@ messenger.runtime.onMessage.addListener((message, sender, sendResponse) => {
                             summary: cleanedSummary,
                             summary_html: summaryHtml,
                             summary_date: new Date(),
-                            headerMessageId: msg.headerMessageId
+                            headerMessageId: msg.headerMessageId,
+                            injection_findings: Array.isArray(msg.injection_findings) ? msg.injection_findings : []
                         };
                         await summaryStore.saveSummary(summaryData, msg.headerMessageId);
                         let prefs_summary = await browser.storage.sync.get({

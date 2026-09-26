@@ -61,6 +61,8 @@ untouched so upstream syncs merge cleanly.
 - Inline translations and summaries are sanitized before they are shown in
   the message pane. A translated email could previously inject styles that
   hid ThunderAI's panels, including the injection warning.
+- A summary saved from the chat window keeps the prompt-injection warning when
+  it is shown above the message.
 - The injection guard now also fences `{%mail_headers:...%}` values and the
   sender, To and Cc names.
 - `{%mail_plain_text_part%}` (new upstream) is now fenced by the
