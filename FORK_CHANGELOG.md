@@ -53,6 +53,9 @@ untouched so upstream syncs merge cleanly.
   again.
 - Ollama: setting a temperature no longer silently discards the configured
   context length (`num_ctx`).
+- `{%mail_raw_source%}` no longer mistakes an attached text or HTML file for
+  the message body, which could hide the real (e.g. phishing) body from the
+  analysis.
 - The injection guard now also fences `{%mail_headers:...%}` values and the
   sender, To and Cc names.
 - `{%mail_plain_text_part%}` (new upstream) is now fenced by the

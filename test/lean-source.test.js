@@ -60,6 +60,23 @@ describe('buildLeanSource', () => {
     expect(out).not.toContain('iVBORw0KGgo');
   });
 
+  it('treats attached text files as attachments, not as the body', () => {
+    const full = {
+      contentType: 'multipart/mixed',
+      parts: [
+        { contentType: 'text/plain', body: 'Please pay the invoice at http://evil.test' },
+        { contentType: 'text/html', name: 'harmless.html', size: 2048, body: '<p>nice cat pictures</p>' },
+        { contentType: 'text/plain', headers: { 'content-disposition': ['attachment; filename="notes.txt"'] }, body: 'attached notes' },
+      ],
+    };
+    const out = buildLeanSource(HEADERS, full);
+    expect(out).toContain('--- body (text/plain) ---\nPlease pay the invoice at http://evil.test');
+    expect(out).not.toContain('nice cat pictures');
+    expect(out).not.toContain('attached notes');
+    expect(out).toContain('- harmless.html [text/html] (2 KB)');
+    expect(out).toContain('- (unnamed) [text/plain]');
+  });
+
   it('handles a simple non-multipart text message (body at the root)', () => {
     const full = { contentType: 'text/plain', body: 'just a plain note' };
     const out = buildLeanSource(HEADERS, full);

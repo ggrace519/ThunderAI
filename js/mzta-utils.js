@@ -367,13 +367,25 @@ export function buildLeanSource(headerBlock, fullMessage, opts = {}) {
   const plainParts = [];
   const attachments = [];
 
+  // A named or Content-Disposition: attachment part is a file the sender
+  // attached, even when it is text (an .html or .txt file): it must not stand
+  // in for the message body.
+  function isAttachment(part) {
+    if (part.name) return true;
+    const disposition = part.headers?.["content-disposition"];
+    const value = Array.isArray(disposition) ? disposition[0] : disposition;
+    return /^\s*attachment/i.test(value || "");
+  }
+
   function processPart(part) {
     if (!part) return;
     if (part.parts && part.parts.length > 0) {
       part.parts.forEach(processPart);
       return;
     }
-    if (part.contentType === "text/html") {
+    if (part.contentType && !part.contentType.startsWith("multipart/") && isAttachment(part)) {
+      attachments.push({ name: part.name || "(unnamed)", type: part.contentType, size: part.size });
+    } else if (part.contentType === "text/html") {
       if (part.body) htmlParts.push(part.body);
     } else if (part.contentType && part.contentType.startsWith("text/")) {
       if (part.body) plainParts.push(part.body);
