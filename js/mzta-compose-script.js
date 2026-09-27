@@ -1213,6 +1213,10 @@ switch (message.command) {
         chevron.style.display = 'none';
         branding.style.display = '';
         spamMenu.style.display = 'inline-flex';
+        // The wide layout's row is the taller one (the ⋯ button). Holding the row at
+        // that height means a layout switch never moves the email below it, so it
+        // can't toggle the pane's scrollbar and hand the observer a new width.
+        topRow.style.minHeight = topRow.offsetHeight + 'px';
         if (badgeText.scrollWidth > badgeText.clientWidth) {
             chevron.style.display = 'inline';
             branding.style.display = 'none';

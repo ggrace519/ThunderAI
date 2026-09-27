@@ -103,10 +103,11 @@ describe('spam badge layout', () => {
     const { chevron, branding } = badgeParts();
     // Start from the chevron layout, then from the branding layout: the old code
     // measured the current layout and answered differently each time.
+    let width = paneWidth;
     for (const start of ['chevron', 'branding', 'chevron', 'branding']) {
       chevron.style.display = start === 'chevron' ? 'inline' : 'none';
       branding.style.display = start === 'branding' ? '' : 'none';
-      resize(paneWidth + Math.random()); // a new width, so the observer re-decides
+      resize(width += 0.1); // a new width, so the observer re-decides
       expect(isShown(chevron)).toBe(true);
       expect(isShown(branding)).toBe(false);
     }
