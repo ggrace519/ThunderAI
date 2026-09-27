@@ -35,6 +35,12 @@ untouched so upstream syncs merge cleanly.
   change.
 
 ### Fixed
+- The message preview pane no longer jitters when a spam report is shown.
+  At some pane widths the Antispam badge kept switching between its two
+  layouts many times a second, moving the whole email up and down. It was
+  most visible while the "Get AI Summary" button was also on the toolbar,
+  because that button narrows the badge. Replacing a spam report also no
+  longer leaves its old resize watcher running (#13).
 - Auto-tagging and the spam filter no longer fail on newer Claude models
   (Fable 5.1, Mythos 5.1, Opus 5.5), which reject the forced tool call the fork
   used to get JSON back, and no longer conflict with thinking on Opus 5,
