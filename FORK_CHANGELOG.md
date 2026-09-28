@@ -6,8 +6,10 @@ untouched so upstream syncs merge cleanly.
 
 ## [Unreleased]
 
+## [5.0.2-fork.1] - 2026-09-26
+
 ### Changed
-- Rebased onto upstream ThunderAI **5.0.2** (from 4.1.1). Brings the settings
+- Updated to upstream ThunderAI **5.0.2** (from 4.1.1). Brings the settings
   redesign, the setup wizard, the redesigned AI chat window, the interactive
   "Show differences" picker, the new HTML engine, `{%mail_plain_text_part%}`,
   the Claude "Effort" option and "Extra body data".

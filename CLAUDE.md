@@ -73,6 +73,7 @@ This is a fork: `origin` = `ggrace519/ThunderAI`, `upstream` = `micz/ThunderAI` 
 - `develop` is the integration branch and the PR target; `main` only receives promotion PRs from `develop`.
 - Upstream syncs land as a merge (never a rebase) of `upstream/main` on a `chore/merge-upstream-<version>` branch, PR'd into `develop`.
 - Fork changes are logged in `FORK_CHANGELOG.md`. `CHANGELOG.md` is upstream's release notes and is left untouched.
+- Releases are named `<upstream version>-fork.<n>` (e.g. `5.0.2-fork.1`): the `## [Unreleased]` section of `FORK_CHANGELOG.md` is rolled into that heading before promotion, and `main` is tagged `v<that name>` after the promotion merge. `manifest.json` keeps upstream's numeric version.
 
 ## Packaging
 
