@@ -41,6 +41,7 @@ $excludeItems = @(
     # Development-only tooling — must NOT ship in the add-on
     "node_modules",
     "test",
+    "tests",
     "demo",
     "docs",
     "coverage",

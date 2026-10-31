@@ -36,9 +36,10 @@
 // the module-world consumers (background, menus, utils).
 //
 // The sanitizer, by contrast, is only ever needed in module world (the webchat
-// renderer and the diff picker) - the content script never sanitizes, because
-// model output is already sanitized upstream before it reaches the compose
-// window. So the sanitizer + taxonomy live HERE, self-contained, with no
+// renderer, the diff picker, and the background's summary/translation panel
+// payloads, _sanitizePanelPayload()) - model output is sanitized upstream before
+// it reaches the content script, which only keeps a small defense-in-depth strip
+// of its own (_renderSafeHtml()). So the sanitizer + taxonomy live HERE, self-contained, with no
 // dependency on the classic globals. That is deliberate: this module also loads
 // on the api_webchat page, which has no classic script at all.
 
@@ -130,31 +131,13 @@ export function sanitizeBlockHtml(html) {
     return sanitize(html, { allowBlocks: true });
 }
 
-// Model HTML shown in the message-pane panels (inline summary, inline
-// translation) crosses the same gate here, in the background page, because the
-// content script renders what it receives as-is. Plain-text translations are
-// left untouched: sanitizing them would entity-encode a literal "<" or "&".
-const PANEL_HTML_RE = /<[a-z][^>]*>/i;
-
-export function sanitizePanelPayload(payload) {
-    const data = payload?.data;
-    if (!data) { return payload; }
-    const clean = { ...data };
-    if (typeof clean.summary_html === 'string' && clean.summary_html !== '') {
-        clean.summary_html = sanitizeBlockHtml(clean.summary_html);
-    }
-    if (typeof clean.translated_text === 'string' && PANEL_HTML_RE.test(clean.translated_text)) {
-        clean.translated_text = sanitizeBlockHtml(clean.translated_text);
-    }
-    return { ...payload, data: clean };
-}
-
 // ── Module-world re-exports of the classic DOM projection ────────────────────
 //
 // These forward to the globals defined in js/lib/mzta-html-lines.js. The lookup
 // is at CALL time (not module-eval time), so this module's load order relative
-// to the classic script never matters, and the api_webchat page - which has no
-// classic script and never calls these - is unaffected by their absence.
+// to the classic script never matters, and a page that imports this module
+// without loading the classic script works as long as it never calls these.
+// The api_webchat page loads it: Copy goes through htmlToLines/normalizePlain.
 export const htmlToLines = (html) => globalThis.mztaHtmlToLines(html);
 export const htmlNodeToLines = (node) => globalThis.mztaHtmlNodeToLines(node);
 export const stripHidden = (node) => globalThis.mztaStripHidden(node);

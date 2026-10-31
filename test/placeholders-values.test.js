@@ -1,12 +1,10 @@
 import { describe, it, expect, vi, beforeAll, afterAll } from 'vitest';
+import { makeBrowserStub } from './helpers/browser-stub.js';
 
 // getPlaceholdersValues reads custom placeholders from storage and names from
 // i18n; stub just those two browser APIs.
 beforeAll(() => {
-  vi.stubGlobal('browser', {
-    storage: { local: { get: async (defaults) => ({ ...defaults }) }, sync: { get: async (defaults) => ({ ...defaults }) } },
-    i18n: { getMessage: (key) => key },
-  });
+  vi.stubGlobal('browser', makeBrowserStub());
 });
 afterAll(() => {
   vi.unstubAllGlobals();

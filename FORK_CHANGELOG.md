@@ -6,6 +6,61 @@ untouched so upstream syncs merge cleanly.
 
 ## [Unreleased]
 
+### Changed
+- Updated to upstream ThunderAI **5.1.1** (from 5.0.2). Brings the redesigned
+  Custom Prompts page, Thunderbird Enterprise Policies, settings stored in
+  Thunderbird's local storage (migrated automatically at first start),
+  automatic retries when a provider is temporarily unavailable, parallel
+  processing of incoming mail, token usage in the chat window, many new
+  per-provider options (Claude Top P/K and stop sequences, OpenAI output
+  format and verbosity, Gemini max tokens/Top P/K, Ollama reasoning level and
+  keep-alive), domain skip/block lists for the spam filter, and the 5.0.3/5.0.4
+  ChatGPT Web fixes. See upstream's `CHANGELOG.md` for the full list.
+- The fork's fixes that upstream has since made in its own way now use
+  upstream's version: the spam badge jitter (upstream #929, sent from this
+  fork), Claude Opus 5.5 handling, thinking combined with temperature, Ollama
+  context size with temperature, "Update models" on OpenAI-compatible servers,
+  and the HTML sanitizing of the inline summary/translation panels.
+- Claude: a selected Effort level is now always sent, even when it matches
+  the model's default (upstream's rule). Before, the fork left it out.
+- The fork's request timeouts are replaced by upstream's retry layer, which
+  times out a connection that never answers and retries temporary failures.
+- "Don't send the email body" is now a switch in the redesigned Custom Prompts
+  editor, with a "No body" chip in the table view.
+- Auto-tagging and the spam filter's structured outputs keep working with
+  upstream's new options. On OpenAI, the command's schema replaces any
+  *Output format* the user set for that request but keeps *Verbosity*.
+
+### Fixed
+- Auto-tagging and the spam filter would have been cut off after 60 s on slow
+  models, and re-run up to 5 times, once synced with upstream's retry layer.
+  Their requests (non-streaming) now get the long deadline the fork already
+  used; `special_command_timeout` still bounds the wait.
+- A Claude request rejected for its Effort level is retried without the
+  Effort but with the JSON schema kept, so the retry still returns the
+  structured reply auto-tagging and the spam filter expect.
+- The packaging scripts now leave upstream's new `tests/` folder out of the
+  XPI.
+- `{%mail_raw_source%}` was the only built-in placeholder without the
+  "dynamic" attribute, so the placeholder autocomplete described it
+  inconsistently; found by upstream's placeholder tests.
+- An alert in the message pane no longer fails when the safe-formatting
+  helper was not loaded first; it falls back to plain text.
+- Upstream's own GitHub automation (retargeting PRs to its `dev` branch,
+  vendor-library update PRs, bug-report validation) is limited to the
+  upstream repository, so it no longer acts on this fork's promotion PRs and
+  issues.
+
+### Infrastructure
+- Upstream's test suite (`tests/`, `node:test` + jsdom) runs alongside the
+  fork's Vitest suite: `npm test` runs both, `npm run test:upstream` and
+  `npm run test:fork` run one. Upstream's tests run with the fork's
+  features on; where a fork feature changes what they assert, they were
+  adapted (each change marked `fork:`). CI runs on Node 24, which upstream's
+  suite requires. Dev dependencies are pinned to exact versions,
+  and Vitest and happy-dom were bumped to releases that fix their published
+  security advisories.
+
 ## [5.0.2-fork.1] - 2026-09-26
 
 ### Changed

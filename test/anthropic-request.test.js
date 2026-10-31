@@ -80,12 +80,42 @@ describe('Anthropic thinking and sampling', () => {
     expect(body.thinking).toEqual({ type: 'disabled' });
   });
 
-  it('sends effort high on Opus 5.5, whose default is medium', async () => {
+  it('always sends an explicitly chosen effort level (upstream 5.0.4, #936)', async () => {
+    // Defaults differ per model (Opus 5.5: medium) and can change, so a level the
+    // user picked is sent even when it looks like the API default.
     const opus55 = await sentBody({ model: 'claude-opus-5-5', effort: 'high' });
     expect(opus55.output_config).toEqual({ effort: 'high' });
-    const opus55Default = await sentBody({ model: 'claude-opus-5-5', effort: 'medium' });
+    const opus55Medium = await sentBody({ model: 'claude-opus-5-5', effort: 'medium' });
+    expect(opus55Medium.output_config).toEqual({ effort: 'medium' });
+    // Only the empty "Default (decided by the API)" option leaves the field out.
+    const opus55Default = await sentBody({ model: 'claude-opus-5-5', effort: '' });
     expect(opus55Default.output_config).toBeUndefined();
-    const opus5 = await sentBody({ model: 'claude-opus-5', effort: 'high' });
-    expect(opus5.output_config).toBeUndefined();
+  });
+});
+
+describe('Anthropic 400 retry with structured output', () => {
+  it('keeps the schema format when the retry drops a rejected effort', async () => {
+    const rejected = new Response(JSON.stringify({ error: { message: 'effort: unsupported value for this model' } }), { status: 400 });
+    global.fetch = vi.fn()
+      .mockResolvedValueOnce(rejected)
+      .mockResolvedValueOnce(new Response('{}', { status: 200 }));
+    const client = new Anthropic({ apiKey: 'k', version: '2023-06-01', model: 'claude-opus-5-5', effort: 'max', response_schema: schema });
+    const out = await client.fetchResponse([{ role: 'user', content: 'hi' }], { maxRetries: 0 });
+    expect(out.ok).toBe(true);
+    const first = JSON.parse(global.fetch.mock.calls[0][1].body);
+    const retry = JSON.parse(global.fetch.mock.calls[1][1].body);
+    expect(first.output_config).toEqual({ effort: 'max', format: { type: 'json_schema', schema: schema.schema } });
+    expect(retry.output_config).toEqual({ format: { type: 'json_schema', schema: schema.schema } });
+  });
+
+  it('drops the format too when the 400 names it', async () => {
+    const rejected = new Response(JSON.stringify({ error: { message: 'output_config.format: not supported' } }), { status: 400 });
+    global.fetch = vi.fn()
+      .mockResolvedValueOnce(rejected)
+      .mockResolvedValueOnce(new Response('{}', { status: 200 }));
+    const client = new Anthropic({ apiKey: 'k', version: '2023-06-01', model: 'claude-opus-5-5', effort: 'max', response_schema: schema });
+    await client.fetchResponse([{ role: 'user', content: 'hi' }], { maxRetries: 0 });
+    const retry = JSON.parse(global.fetch.mock.calls[1][1].body);
+    expect(retry.output_config).toBeUndefined();
   });
 });

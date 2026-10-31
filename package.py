@@ -18,7 +18,7 @@ ROOT = os.path.dirname(os.path.abspath(__file__))
 OUTPUT = "thunderai.xpi"
 
 # Directories never shipped in the add-on (matched at any depth).
-EXCLUDE_DIRS = {".git", ".github", ".claude", "node_modules", "test", "demo", "docs", "coverage"}
+EXCLUDE_DIRS = {".git", ".github", ".claude", "node_modules", "test", "tests", "demo", "docs", "coverage"}
 
 # File-name patterns never shipped (developer/repo tooling).
 EXCLUDE_FILE_PATTERNS = [
