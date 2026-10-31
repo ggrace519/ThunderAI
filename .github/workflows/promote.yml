@@ -1,0 +1,31 @@
+# Opens and refreshes the develop -> main promotion PR after CI passes on develop.
+# Caller of the shared workflow in ggrace519/.github (see its README). Pinned to a release
+# commit, not @v1: bump the SHA on purpose when a new release ships.
+name: promote
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [develop]
+  workflow_dispatch:
+permissions:
+  contents: read
+  pull-requests: write
+# Only push-triggered and manual runs share the group. A develop merge also re-runs CI on the
+# open promotion PR; that run's promote job is skipped by `if`, but concurrency applies before
+# `if`, so in a shared group it would cancel the push run that does the work.
+concurrency:
+  group: >-
+    ${{ (github.event_name == 'workflow_dispatch' || github.event.workflow_run.event == 'push')
+        && 'promote-develop-to-main' || format('promote-skip-{0}', github.run_id) }}
+  cancel-in-progress: true
+jobs:
+  promote:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'push')
+    uses: ggrace519/.github/.github/workflows/promote.yml@56da419a93d4eca7fe1771297dc734fbd9c39fb4 # v1.0.2
+    with:
+      ref: ${{ github.event.workflow_run.head_sha }}
+      merge-note: "Nothing is deployed: merging to main marks the release. Tag main v<upstream version>-fork.<n> and build the XPI with package.py."

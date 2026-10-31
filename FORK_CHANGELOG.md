@@ -56,6 +56,9 @@ untouched so upstream syncs merge cleanly.
   helper was not loaded first; it falls back to plain text.
 
 ### Infrastructure
+- The `develop` → `main` promotion PR is now opened and kept up to date
+  automatically once CI passes on `develop` (shared `promote` workflow). The
+  fork's CI workflow is renamed `CI` and also runs on pushes to `develop`.
 - The packaging scripts leave upstream's new `tests/` folder out of the XPI.
 - Upstream's own GitHub automation (retargeting PRs to its `dev` branch,
   vendor-library update PRs, bug-report validation) is limited to the

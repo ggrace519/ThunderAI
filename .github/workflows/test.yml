@@ -1,8 +1,11 @@
-name: Tests
+# The fork's CI. Named CI (not Tests) so promote.yml's workflow_run trigger is unambiguous:
+# upstream's label-triggered .github/workflows/tests.yml is also named Tests.
+name: CI
 
 on:
   push:
-    branches: [main]
+    # develop too: promote.yml runs after CI succeeds on a develop push.
+    branches: [main, develop]
   pull_request:
 
 jobs:
