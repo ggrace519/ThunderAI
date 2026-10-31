@@ -16,7 +16,10 @@
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-import { taStorage } from './mzta-storage.js';
+import {
+    taStorage,
+    findingsField
+} from './mzta-storage.js';
 import { taLogger } from './mzta-logger.js';
 
 export class taSummaryStore {
@@ -70,6 +73,8 @@ export class taSummaryStore {
             error: summary.error || false,
             message: summary.message || '',
             summary_date: new Date(summary.summary_date || summary.ts),
+            // fork: the prompt-injection guard's findings, when it found any [#19]
+            ...findingsField(summary.injection_findings),
         };
     }
 

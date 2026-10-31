@@ -2170,4 +2170,4 @@ per-message records automatically:
   accumulate until the next such batch; with the spam filter off they are never truncated.
 
 When to clean up, with which age and which limits is still to be decided (one job for all three
-stores). Each translation record stores `translated_text`, `lang`, and optional error information.
+stores). Each translation record stores `translated_text`, `lang`, and optional error information. Both the summary and the translation field also carry this fork's `injection_findings` when the prompt-injection guard flagged the mail (absent otherwise), so the warning banner survives a cache hit — see [Prompt-injection guard](04-api-integrations.md#prompt-injection-guard).

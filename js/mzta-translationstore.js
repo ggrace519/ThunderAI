@@ -16,7 +16,10 @@
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-import { taStorage } from './mzta-storage.js';
+import {
+    taStorage,
+    findingsField
+} from './mzta-storage.js';
 import { taLogger } from './mzta-logger.js';
 
 export class taTranslationStore {
@@ -73,6 +76,8 @@ export class taTranslationStore {
             error: translation.error || false,
             message: translation.message || '',
             translation_date: new Date(translation.ts),
+            // fork: the prompt-injection guard's findings, when it found any [#19]
+            ...findingsField(translation.injection_findings),
         };
     }
 

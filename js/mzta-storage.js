@@ -18,6 +18,12 @@
 
 import { taLogger } from './mzta-logger.js';
 
+// fork: `{injection_findings}` for a stored summary/translation, or nothing when the guard
+// found nothing, so records of clean mail keep upstream's exact shape [#19].
+export function findingsField(findings) {
+    return Array.isArray(findings) && findings.length > 0 ? { injection_findings: findings } : {};
+}
+
 export class taStorage {
 
     static STORAGE_KEY_PREFIX = 'msg:';
@@ -268,6 +274,8 @@ export class taStorage {
                     ? summary_data.summary_date.toISOString()
                     : summary_data.summary_date,
                 ts: now,
+                // fork: the prompt-injection guard's findings, so the warning survives a cache hit [#19]
+                ...findingsField(summary_data.injection_findings),
             };
             record.ts = now;
             await messenger.storage.local.set({ [key]: record });
@@ -371,7 +379,9 @@ export class taStorage {
                 lang,
                 error,
                 message,
-                ts: now
+                ts: now,
+                // fork: the prompt-injection guard's findings, so the warning survives a cache hit [#19]
+                ...findingsField(data?.injection_findings),
             };
             record.ts = now;
             await messenger.storage.local.set({ [key]: record });

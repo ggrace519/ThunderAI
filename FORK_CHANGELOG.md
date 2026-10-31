@@ -40,6 +40,10 @@ untouched so upstream syncs merge cleanly.
   structured reply auto-tagging and the spam filter expect.
 
 ### Fixed
+- The prompt-injection warning above the inline summary and translation no
+  longer disappears when you leave the message and come back. The warning
+  was never stored with the cached result, so it showed only the first time
+  (#19).
 - Adding tags from the message context menu now asks the AI for the same
   structured JSON reply as automatic tagging, and logs the prompt-injection
   guard's warning. Before, that path still scraped the tags out of free text,
