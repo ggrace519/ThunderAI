@@ -55,6 +55,8 @@ import { taPromptUtils } from './mzta-utils-prompt.js';
 import { taLogger } from './mzta-logger.js';
 import { placeholdersUtils } from './mzta-placeholders.js';
 import { mzta_specialCommand } from './mzta-special-commands.js';
+import { getSpecialPromptSchema } from './api/response-schemas.js';
+import { scanPrompt } from './mzta-prompt-guard.js';
 import { taWorkingStatus } from './mzta-working-status.js';
 import { taJobRegistry } from './mzta-job-registry.js';
 import { mztaPrefs } from './mzta-prefs.js';
@@ -464,12 +466,21 @@ export class mzta_Menus {
                         // console.log(">>>>>>>>>>>>> curr_prompt: " + JSON.stringify(curr_prompt));
                         // console.log(">>>>>>>>>>>>>> prefs_at.connection_type: " + JSON.stringify(prefs_at.connection_type));
                         // console.log(">>>>>>>>>>>>>> def_conntype: " + JSON.stringify(def_conntype));
+                        // No wrapped regions when the guard pref is off, so this is a no-op then.
+                        const tags_guard_report = scanPrompt(fullPrompt);
+                        if (tags_guard_report.suspicious) {
+                            this.logger.warn("[PromptGuard][AddTags] Suspicious content in email data: " + JSON.stringify(tags_guard_report.findings));
+                        }
+                        // Same structured output as the automatic path: this job can be
+                        // joined by the batch (and the other way round), so both must ask
+                        // for the same JSON.
                         let cmd_addTags = new mzta_specialCommand({
                             prompt: fullPrompt,
                             llm: def_conntype,
                             custom_model: curr_prompt.model ? curr_prompt.model : '',
                             do_debug: prefs_at.do_debug,
-                            config: curr_prompt
+                            config: curr_prompt,
+                            schema: getSpecialPromptSchema('prompt_add_tags')
                         });
                         // One add_tags job per message (taJobRegistry): the automatic batch, the
                         // context menu and this dialog path can reach the same message at once.

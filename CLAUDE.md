@@ -30,10 +30,7 @@ ThunderAI is a **Thunderbird WebExtension (Manifest V2)** that integrates multip
 
    See "Adding a policy-settable preference" in `claude-spec/08-managed-configuration.md`.
 8. **Keep spec files up to date:** When making code changes that affect a subsystem described in claude-spec/, update the relevant spec file to reflect the new behavior. Read the spec before modifying, update it after.
-9. **Never commit or add on your own initiative.** Do not run `git commit` (or `git push`, or `git add`, or create branches) unless explicitly asked to in that same request. Finishing a task is *not* permission to commit it: leave the work modified, report what is ready, and let the maintainer decide when to commit and how to word the message. Approval to implement a plan is not approval to commit it.
-10. **Never show the full diff in chat.** When finishing a task, do not paste the complete diff (or whole rewritten files) into the final message. Summarize what changed — files touched with clickable links, and a short description per change — and let the maintainer inspect the actual diff in the editor or via git. Short snippets are fine only when needed to explain a specific decision.
-11. **Never run the full test suite, and never ask to run it.** The maintainer runs `npm test` (and the full DOM run) themselves. When completing a job, run only the specific test files the change touches, without asking, and list which ones you ran.
-12. **Release notes:** edit only `options/mzta-release-notes.html`. `CHANGELOG.md` is generated from it (`.github/scripts/changelog-sync.mjs`, `npm run changelog`) and committed by the `changelog-sync.yml` workflow on every push that touches the release notes — never edit it by hand.
+9. **Never show the full diff in chat.** When finishing a task, do not paste the complete diff (or whole rewritten files) into the final message. Summarize what changed — files touched with clickable links, and a short description per change — and let the maintainer inspect the actual diff in the editor or via git. Short snippets are fine only when needed to explain a specific decision.
 
 ## Data flow
 
@@ -95,6 +92,7 @@ This is a fork: `origin` = `ggrace519/ThunderAI`, `upstream` = `micz/ThunderAI` 
 
 - `develop` is the integration branch and the PR target; `main` only receives promotion PRs from `develop`.
 - Upstream syncs land as a merge (never a rebase) of `upstream/main` on a `chore/merge-upstream-<version>` branch, PR'd into `develop`.
+- Upstream's `CLAUDE.md` carries maintainer rules that do not apply here (never commit, never run the full test suite, edit only `options/mzta-release-notes.html`); they are dropped from this file on purpose — drop them again if an upstream sync brings them back.
 - Fork changes are logged in `FORK_CHANGELOG.md`. `CHANGELOG.md` is upstream's release notes and is left untouched.
 - Releases are named `<upstream version>-fork.<n>` (e.g. `5.0.2-fork.1`): the `## [Unreleased]` section of `FORK_CHANGELOG.md` is rolled into that heading before promotion, and `main` is tagged `v<that name>` after the promotion merge. `manifest.json` keeps upstream's numeric version.
 

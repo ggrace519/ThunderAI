@@ -30,28 +30,33 @@ untouched so upstream syncs merge cleanly.
 - Auto-tagging and the spam filter's structured outputs keep working with
   upstream's new options. On OpenAI, the command's schema replaces any
   *Output format* the user set for that request but keeps *Verbosity*.
-
-### Fixed
-- Auto-tagging and the spam filter would have been cut off after 60 s on slow
-  models, and re-run up to 5 times, once synced with upstream's retry layer.
-  Their requests (non-streaming) now get the long deadline the fork already
-  used; `special_command_timeout` still bounds the wait.
+- Auto-tagging and the spam filter keep the long wait for slow models under
+  upstream's retry layer: their requests (non-streaming) get a 10-minute
+  limit instead of upstream's 60 s, which would have cut slow models off and
+  re-run the request up to 5 times. `special_command_timeout` still bounds
+  the wait.
 - A Claude request rejected for its Effort level is retried without the
   Effort but with the JSON schema kept, so the retry still returns the
   structured reply auto-tagging and the spam filter expect.
-- The packaging scripts now leave upstream's new `tests/` folder out of the
-  XPI.
+
+### Fixed
+- Adding tags from the message context menu now asks the AI for the same
+  structured JSON reply as automatic tagging, and logs the prompt-injection
+  guard's warning. Before, that path still scraped the tags out of free text,
+  and since the menu and an incoming batch now share one tagging job, the
+  reply format depended on which one started first.
 - `{%mail_raw_source%}` was the only built-in placeholder without the
   "dynamic" attribute, so the placeholder autocomplete described it
   inconsistently; found by upstream's placeholder tests.
 - An alert in the message pane no longer fails when the safe-formatting
   helper was not loaded first; it falls back to plain text.
-- Upstream's own GitHub automation (retargeting PRs to its `dev` branch,
-  vendor-library update PRs, bug-report validation) is limited to the
-  upstream repository, so it no longer acts on this fork's promotion PRs and
-  issues.
 
 ### Infrastructure
+- The packaging scripts leave upstream's new `tests/` folder out of the XPI.
+- Upstream's own GitHub automation (retargeting PRs to its `dev` branch,
+  vendor-library update PRs, bug-report validation) is limited to the
+  upstream repository, so it never acts on this fork's promotion PRs and
+  issues.
 - Upstream's test suite (`tests/`, `node:test` + jsdom) runs alongside the
   fork's Vitest suite: `npm test` runs both, `npm run test:upstream` and
   `npm run test:fork` run one. Upstream's tests run with the fork's
