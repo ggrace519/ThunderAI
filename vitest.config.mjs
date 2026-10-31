@@ -7,6 +7,8 @@ export default defineConfig({
   test: {
     environment: 'node',
     include: ['test/**/*.test.js'],
+    // The shared modules touch browser.* at import time (js/mzta-prefs.js).
+    setupFiles: ['test/setup-browser.js'],
     globals: false,
   },
 });

@@ -11,7 +11,8 @@ describe('OpenAIComp.fetchModels', () => {
     // leaving the "Update models" spinner stuck and no error shown.
     global.fetch = vi.fn(() => Promise.reject(new Error('CORS / network blocked')));
     const client = new OpenAIComp({ host: 'https://api.example.test', use_v1: true });
-    const out = await client.fetchModels();
+    // No retries: fetchWithRetry() would otherwise wait 5-30 s between attempts.
+    const out = await client.fetchModels({ maxRetries: 0 });
     expect(out.ok).toBe(false);
     expect(out.is_exception).toBe(true);
     expect(out.error).toContain('CORS / network blocked');

@@ -1,10 +1,8 @@
 import { describe, it, expect, vi, beforeAll, afterAll } from 'vitest';
+import { makeBrowserStub } from './helpers/browser-stub.js';
 
 beforeAll(() => {
-  vi.stubGlobal('browser', {
-    storage: { local: { get: async (d) => ({ ...d }) }, sync: { get: async (d) => ({ ...d }) } },
-    i18n: { getMessage: (key) => key },
-  });
+  vi.stubGlobal('browser', makeBrowserStub());
 });
 afterAll(() => {
   vi.unstubAllGlobals();

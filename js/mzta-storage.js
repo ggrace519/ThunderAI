@@ -18,6 +18,12 @@
 
 import { taLogger } from './mzta-logger.js';
 
+// fork: `{injection_findings}` for a stored summary/translation, or nothing when the guard
+// found nothing, so records of clean mail keep upstream's exact shape [#19].
+export function findingsField(findings) {
+    return Array.isArray(findings) && findings.length > 0 ? { injection_findings: findings } : {};
+}
+
 export class taStorage {
 
     static STORAGE_KEY_PREFIX = 'msg:';
@@ -43,6 +49,69 @@ export class taStorage {
     _buildKey(messageId) {
         return taStorage.STORAGE_KEY_PREFIX + messageId;
     }
+
+    // The tail of the pending writes of each record, by storage key. Every write of a record is
+    // a read-modify-write of the whole object (one field changes, the others are written back
+    // as they were read), so two writes of the same message running together would each write
+    // back the record without the other's field: a summary saved while the spam job removes the
+    // previous report, a translation saved during a panel Refresh. Queued per key, they run one
+    // after the other and each reads what the previous one wrote. Module-level (static), so the
+    // three stores - each with its own taStorage instance - share it. Writes to different
+    // messages still run in parallel. The queue lives in one extension context: the background,
+    // which writes these records; a page only reads them or clears them.
+    static _pending = new Map();
+
+    /**
+     * Run fn() once every earlier queued write of the same message has settled. Resolves or
+     * rejects as fn() does; a failure never blocks the next write.
+     */
+    _queued(messageId, fn) {
+        const key = this._buildKey(messageId);
+        const prev = taStorage._pending.get(key) || Promise.resolve();
+        const run = prev.then(fn);
+        const tail = run.catch(() => {});
+        taStorage._pending.set(key, tail);
+        tail.then(() => {
+            if (taStorage._pending.get(key) === tail) taStorage._pending.delete(key);
+        });
+        return run;
+    }
+
+    /** Write the spam field for a given Message-ID (queued with the other writes of the record). */
+    writeSpam(messageId, report_data, force = true) {
+        return this._queued(messageId, () => this._writeSpamNow(messageId, report_data, force));
+    }
+
+    /** Delete only the spam field of a record (queued). Deletes the record when no data field remains. */
+    deleteSpamField(messageId) {
+        return this._queued(messageId, () => this._deleteSpamFieldNow(messageId));
+    }
+
+    /** Write the summary field for a given Message-ID (queued). */
+    writeSummary(messageId, summary_data, force = true) {
+        return this._queued(messageId, () => this._writeSummaryNow(messageId, summary_data, force));
+    }
+
+    /** Delete only the summary field of a record (queued). Deletes the record when no data field remains. */
+    deleteSummaryField(messageId) {
+        return this._queued(messageId, () => this._deleteSummaryFieldNow(messageId));
+    }
+
+    /** Write the translation field for a given Message-ID (queued). */
+    writeTranslation(messageId, data, force = true) {
+        return this._queued(messageId, () => this._writeTranslationNow(messageId, data, force));
+    }
+
+    /** Delete only the translation field of a record (queued). Deletes the record when no data field remains. */
+    deleteTranslationField(messageId) {
+        return this._queued(messageId, () => this._deleteTranslationFieldNow(messageId));
+    }
+
+    /** Delete the entire record for a given Message-ID (queued). */
+    deleteRecord(messageId) {
+        return this._queued(messageId, () => this._deleteRecordNow(messageId));
+    }
+
 
     /**
      * Read the full record for a given Message-ID.
@@ -88,7 +157,7 @@ export class taStorage {
      *   spamValue, explanation, subject, from, message_date, moved, SpamThreshold.
      * @param {boolean} [force=true] - If true, overwrite existing spam data.
      */
-    async writeSpam(messageId, report_data, force = true) {
+    async _writeSpamNow(messageId, report_data, force = true) {
         this.taLog.log('[writeSpam] messageId: ' + messageId + ', force: ' + force);
         try {
             let key = this._buildKey(messageId);
@@ -156,7 +225,7 @@ export class taStorage {
      * Deletes the entire record if no other data fields remain.
      * @param {string} messageId - The Message-ID header string.
      */
-    async deleteSpamField(messageId) {
+    async _deleteSpamFieldNow(messageId) {
         this.taLog.log('[deleteSpamField] messageId: ' + messageId);
         try {
             let key = this._buildKey(messageId);
@@ -186,7 +255,7 @@ export class taStorage {
      *   summary, error, message, summary_date.
      * @param {boolean} [force=true] - If true, overwrite existing summary data.
      */
-    async writeSummary(messageId, summary_data, force = true) {
+    async _writeSummaryNow(messageId, summary_data, force = true) {
         this.taLog.log('[writeSummary] messageId: ' + messageId + ', force: ' + force);
         try {
             let key = this._buildKey(messageId);
@@ -205,6 +274,8 @@ export class taStorage {
                     ? summary_data.summary_date.toISOString()
                     : summary_data.summary_date,
                 ts: now,
+                // fork: the prompt-injection guard's findings, so the warning survives a cache hit [#19]
+                ...findingsField(summary_data.injection_findings),
             };
             record.ts = now;
             await messenger.storage.local.set({ [key]: record });
@@ -248,7 +319,7 @@ export class taStorage {
      * Deletes the entire record if no other data fields remain.
      * @param {string} messageId - The Message-ID header string.
      */
-    async deleteSummaryField(messageId) {
+    async _deleteSummaryFieldNow(messageId) {
         this.taLog.log('[deleteSummaryField] messageId: ' + messageId);
         try {
             let key = this._buildKey(messageId);
@@ -283,7 +354,7 @@ export class taStorage {
      * @param {string} [data.message=''] - Error message.
      * @param {boolean} [force=true] - If true, overwrite existing translation data.
      */
-    async writeTranslation(messageId, data, force = true) {
+    async _writeTranslationNow(messageId, data, force = true) {
         const {
             translated_text = '',
             translated_subject = '',
@@ -308,7 +379,9 @@ export class taStorage {
                 lang,
                 error,
                 message,
-                ts: now
+                ts: now,
+                // fork: the prompt-injection guard's findings, so the warning survives a cache hit [#19]
+                ...findingsField(data?.injection_findings),
             };
             record.ts = now;
             await messenger.storage.local.set({ [key]: record });
@@ -352,7 +425,7 @@ export class taStorage {
      * Deletes the entire record if no other data fields remain.
      * @param {string} messageId - The Message-ID header string.
      */
-    async deleteTranslationField(messageId) {
+    async _deleteTranslationFieldNow(messageId) {
         this.taLog.log('[deleteTranslationField] messageId: ' + messageId);
         try {
             let key = this._buildKey(messageId);
@@ -379,7 +452,7 @@ export class taStorage {
      * Delete the entire record for a given Message-ID.
      * @param {string} messageId - The Message-ID header string.
      */
-    async deleteRecord(messageId) {
+    async _deleteRecordNow(messageId) {
         this.taLog.log('[deleteRecord] messageId: ' + messageId);
         try {
             let key = this._buildKey(messageId);
