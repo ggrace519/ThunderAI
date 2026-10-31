@@ -91,6 +91,7 @@ User triggers a prompt → `popup/mzta-popup.js` → `browser.runtime.sendMessag
 This is a fork: `origin` = `ggrace519/ThunderAI`, `upstream` = `micz/ThunderAI` (push disabled locally).
 
 - `develop` is the integration branch and the PR target; `main` only receives promotion PRs from `develop`.
+- `.github/workflows/promote.yml` (caller of the shared `ggrace519/.github` promote workflow, pinned to a release SHA) opens and refreshes the `develop` → `main` promotion PR after `CI` (`.github/workflows/test.yml`) passes on a `develop` push. An open promotion PR is not approval: merge it only when the maintainer says so, as a merge commit, never a squash.
 - Upstream syncs land as a merge (never a rebase) of `upstream/main` on a `chore/merge-upstream-<version>` branch, PR'd into `develop`.
 - Upstream's `CLAUDE.md` carries maintainer rules that do not apply here (never commit, never run the full test suite, edit only `options/mzta-release-notes.html`); they are dropped from this file on purpose — drop them again if an upstream sync brings them back.
 - Fork changes are logged in `FORK_CHANGELOG.md`. `CHANGELOG.md` is upstream's release notes and is left untouched.
