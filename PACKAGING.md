@@ -88,6 +88,13 @@ zip -r thunderai.xpi . -x "*.git*" -x "*.md" -x "*.sh" -x ".github/*"
 
 ### Option A: Temporary Installation (For Development/Testing)
 
+> [!WARNING]
+> **Use a separate Thunderbird profile for temporary add-ons.** Clicking **Remove** on a temporary
+> ThunderAI in `about:debugging` counts as uninstalling the add-on ID `thunderai@micz.it`, and Thunderbird then
+> deletes **all** of its stored data (settings, API keys, custom prompts), even when a normal copy of ThunderAI is
+> installed underneath. Restarting Thunderbird instead keeps the data, but don't test on the profile you use.
+> Create a test profile with `thunderbird -P` and start it with `thunderbird -P <name> --new-instance`.
+
 1. Open Thunderbird
 2. Go to `about:debugging` (type in address bar)
 3. Click "This Thunderbird" in the left sidebar
@@ -147,20 +154,22 @@ Before distributing, verify your `.xpi` file:
 
 ## Version Number
 
-The version number is defined in `manifest.json`:
-```json
-"version": "3.7.5"
-```
-
-Update this before creating a new package for release.
+The version in `manifest.json` is set by the release automation, not by hand:
+a fork release `<upstream>-fork.<n>` ships as manifest version `<upstream>.<n>`
+(e.g. `5.1.1-fork.1` is `5.1.1.1`), set by the **prepare-release** workflow. A
+plain 3-part version (upstream's) means no fork release is prepared yet, so a
+local build is a development build. See `CLAUDE.md` (Fork & branch model).
 
 ## Distribution
 
-For distribution on addons.thunderbird.net:
-1. Create the `.xpi` file
-2. Sign in to addons.thunderbird.net
-3. Upload the `.xpi` file
-4. The site will validate and sign your addon
+Fork releases are published by the **release** workflow on this repository's
+GitHub Releases page: `thunderai-<version>.xpi`, its `.sha256`, and the
+`updates.json` that installed copies poll through the manifest's `update_url`.
+Users install the XPI with Add-ons Manager -> gear -> **Install Add-on From
+File** (Thunderbird does not require a signature for that).
+
+Do **not** upload the fork to addons.thunderbird.net: it shares upstream's
+add-on ID (`thunderai@micz.it`), and it sets its own `update_url`.
 
 ## Troubleshooting
 
