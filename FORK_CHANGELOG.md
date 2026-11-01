@@ -6,6 +6,12 @@ untouched so upstream syncs merge cleanly.
 
 ## [Unreleased]
 
+### Docs
+- The testing guides now warn that removing a temporary ThunderAI in
+  `about:debugging` deletes all of its saved settings, API keys and custom
+  prompts, even when a normal copy is installed underneath (Thunderbird treats
+  it as an uninstall). Test only in a separate Thunderbird profile.
+
 ### Changed
 - Updated to upstream ThunderAI **5.1.1** (from 5.0.2). Brings the redesigned
   Custom Prompts page, Thunderbird Enterprise Policies, settings stored in

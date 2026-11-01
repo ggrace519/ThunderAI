@@ -15,6 +15,8 @@ Proposal #2 from `INNOVATIONS.md`: replace JSON-scraping with schema-enforced st
 
 ## How to try it
 
+In a separate Thunderbird profile, never the one you use: removing a temporary add-on deletes all of ThunderAI's stored data (see `PACKAGING.md`).
+
 1. Load the branch in Thunderbird (`about:debugging` → Load Temporary Add-on → `manifest.json`), configure any API provider.
 2. Enable the spam filter (Settings → AntiSpam filter) with a thinking-heavy or chatty model — the classic failure case where the old regex scraping picked up preamble text.
 3. Receive/select an email → context menu → "Analyze for spam".
@@ -56,6 +58,8 @@ Proposal #1 from `INNOVATIONS.md`: shield ThunderAI prompts from email-borne pro
 - **Options UI**: "Protect prompts from email content" checkbox on the options page; i18n strings in `_locales/en/messages.json`.
 
 ## How to try it
+
+In a separate Thunderbird profile, never the one you use: removing a temporary add-on deletes all of ThunderAI's stored data (see `PACKAGING.md`).
 
 1. Load the branch in Thunderbird: `about:debugging` → This Thunderbird → Load Temporary Add-on → `manifest.json`.
 2. Send yourself an email whose body contains e.g.:
