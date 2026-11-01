@@ -6,6 +6,56 @@
 [![Thunderbird 140.0+](https://img.shields.io/badge/Thunderbird-140.0%2B-informational?logo=thunderbird)](https://www.thunderbird.net/)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-green.svg)](LICENSE)
 
+> [!IMPORTANT]
+> **This is a fork** of [micz/ThunderAI](https://github.com/micz/ThunderAI). It tracks upstream's releases and adds the
+> features below. Everything after this section is upstream's README: its add-on site and release links install
+> **upstream's** ThunderAI, not this fork.
+
+## About this fork
+
+**What it adds** (details in [FORK_CHANGELOG.md](FORK_CHANGELOG.md)):
+
+- **Prompt-injection guard** (on by default) — email content is fenced as data before it reaches the AI, and a
+  warning is shown when an email tries to instruct the AI: in the chat window and above the inline summary and
+  translation.
+- **Structured outputs** for auto-tagging and the spam filter (on by default) — the AI is asked for a JSON reply
+  matching a schema instead of having it scraped out of free text.
+- **`{%mail_raw_source%}`** placeholder — headers, decoded body and attachment list for phishing and safety
+  checks, without the attachment payloads.
+- **Don't send the email body** — a per-prompt switch, for prompts that use the raw source instead.
+- Clearer alert dialogs, and a longer wait for slow local models on the automatic features.
+
+Both toggles live in Settings → Advanced options.
+
+**Install**
+
+1. Download `thunderai-<version>.xpi` from this fork's [Releases](https://github.com/ggrace519/ThunderAI/releases/latest).
+2. In Thunderbird open the Add-ons Manager, click the gear icon and choose **Install Add-on From File**.
+
+The fork uses the same add-on ID as upstream, so it **replaces** an installed upstream ThunderAI and keeps your
+settings and prompts. Thunderbird does not require Mozilla's signature for add-ons installed from a file. Once
+installed, the fork updates itself from this repository's releases, not from the Thunderbird add-on site. To go
+back to upstream, reinstall ThunderAI from the [add-on site](https://addons.thunderbird.net/thunderbird/addon/thunderai/).
+
+Fork versions are named `<upstream version>-fork.<n>` (e.g. `5.1.1-fork.1`, shown in Thunderbird as `5.1.1.1`).
+
+**Issues** — report problems with the fork's own features [here](https://github.com/ggrace519/ThunderAI/issues);
+anything that also happens in upstream's ThunderAI belongs [upstream](https://github.com/micz/ThunderAI/issues).
+
+**Development**
+
+- `develop` is the integration branch (open pull requests against it); `main` only receives promotion PRs.
+  Upstream releases are merged in, never rebased.
+- `npm ci && npm test` runs upstream's suite (`tests/`, Node's test runner) and the fork's own Vitest suite
+  (`test/`); CI runs both on every pull request and on pushes to `develop` and `main`. Node 22.22+ or 24.15+.
+- Releases: the **prepare-release** workflow (Actions tab) rolls `FORK_CHANGELOG.md` into the next fork version
+  and opens a PR; once it is merged and promoted to `main`, the **release** workflow tags `main` and publishes the
+  XPI with the update manifest.
+- `python3 package.py` builds `thunderai.xpi` locally. See [CLAUDE.md](CLAUDE.md) and [DECISIONS.md](DECISIONS.md)
+  for the conventions.
+
+---
+
 ThunderAI is a Thunderbird add-on that brings AI directly into your mailbox: analyse, write, correct, translate, summarize, tag and optimize your emails, and turn them into calendar events or tasks — without leaving Thunderbird.
 
 You can connect it to a **cloud provider** (ChatGPT, OpenAI, Google Gemini, Claude) or keep everything **local** with Ollama or an OpenAI-compatible server.

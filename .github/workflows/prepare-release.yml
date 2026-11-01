@@ -1,0 +1,74 @@
+# Prepares the next fork release: rolls FORK_CHANGELOG.md's [Unreleased] section into
+# <upstream>-fork.<n> and sets manifest.json to <upstream>.<n>, on a docs/release-<version>
+# branch, then opens the PR into develop. Merging it and the promotion that follows makes
+# release.yml tag main and publish the release. See DECISIONS.md "Fork release channel".
+#
+# The commit is made through the GitHub API (ghcommit-action), so it shows as Verified.
+# A PR opened with GITHUB_TOKEN gets its CI run held for approval; CI runs again on the
+# develop push after the merge.
+name: prepare-release
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: fork-prepare-release
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    if: github.repository == 'ggrace519/ThunderAI'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: develop
+          fetch-depth: 0   # the tags give the next fork number
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Roll the changelog and set the manifest version
+        id: prep
+        run: node .github/scripts/fork-release.mjs prepare "$(date -u +%F)"
+
+      - name: Create the release branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BRANCH: ${{ steps.prep.outputs.branch }}
+        run: |
+          set -euo pipefail
+          gh api "repos/$GITHUB_REPOSITORY/git/refs" -f "ref=refs/heads/$BRANCH" -f "sha=$(git rev-parse HEAD)"
+
+      - name: Commit
+        uses: planetscale/ghcommit-action@a6b150b81dca5dd027baa898604418eec9e11465 # v0.2.22
+        with:
+          commit_message: "docs(release): roll fork changelog into ${{ steps.prep.outputs.version }}"
+          repo: ${{ github.repository }}
+          branch: ${{ steps.prep.outputs.branch }}
+          file_pattern: 'FORK_CHANGELOG.md manifest.json'
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+
+      - name: Open the pull request
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BRANCH: ${{ steps.prep.outputs.branch }}
+          VERSION: ${{ steps.prep.outputs.version }}
+          TAG: ${{ steps.prep.outputs.tag }}
+          MANIFEST_VERSION: ${{ steps.prep.outputs.manifest_version }}
+        run: |
+          set -euo pipefail
+          gh pr create --base develop --head "$BRANCH" \
+            --title "docs(release): roll fork changelog into $VERSION" \
+            --body "Prepares fork release **$VERSION**: FORK_CHANGELOG.md's [Unreleased] section becomes \`[$VERSION]\`, and manifest.json goes to \`$MANIFEST_VERSION\`.
+
+          After this merges, the promotion PR picks it up. Merging the promotion makes \`release.yml\` tag \`main\` as \`$TAG\` and publish the release with the XPI and the update manifest.
+
+          Opened by the prepare-release workflow."

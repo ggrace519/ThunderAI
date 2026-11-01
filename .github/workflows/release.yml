@@ -1,0 +1,77 @@
+# Tags main and publishes the fork release when a promotion brings a prepared fork version.
+#
+# Runs on every push to main (each promotion merge). It releases only when manifest.json
+# carries a fork version (<upstream>.<n>, set by prepare-release.yml) whose tag
+# v<upstream>-fork.<n> does not exist yet; any other promotion is skipped. The tag is created
+# by `gh release create` here, in the same workflow, on purpose: a tag pushed with
+# GITHUB_TOKEN does not start other workflows. See DECISIONS.md "Fork release channel".
+name: release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: fork-release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    if: github.repository == 'ggrace519/ThunderAI'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # the tags decide whether this version is already released
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Decide
+        id: info
+        run: node .github/scripts/fork-release.mjs release-info release-notes.md
+
+      - name: Skipped
+        if: steps.info.outputs.action == 'skip'
+        env:
+          REASON: ${{ steps.info.outputs.reason }}
+        run: |
+          echo "::notice::No release - $REASON"
+
+      - name: Build the XPI and the update manifest
+        if: steps.info.outputs.action == 'release'
+        env:
+          TAG: ${{ steps.info.outputs.tag }}
+          MANIFEST_VERSION: ${{ steps.info.outputs.manifest_version }}
+          MIN_VERSION: ${{ steps.info.outputs.min_version }}
+          XPI: ${{ steps.info.outputs.xpi }}
+        run: |
+          set -euo pipefail
+          python3 package.py
+          mv thunderai.xpi "$XPI"
+          sha256sum "$XPI" > "$XPI.sha256"
+          SHA=$(cut -d' ' -f1 "$XPI.sha256")
+          node .github/scripts/fork-release.mjs updates-json "$TAG" "$MANIFEST_VERSION" "$XPI" "$SHA" "$MIN_VERSION" updates.json
+          cat updates.json
+
+      - name: Tag and publish the release
+        if: steps.info.outputs.action == 'release'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.info.outputs.tag }}
+          VERSION: ${{ steps.info.outputs.version }}
+          XPI: ${{ steps.info.outputs.xpi }}
+        run: |
+          set -euo pipefail
+          gh release create "$TAG" \
+            --target "$GITHUB_SHA" \
+            --title "ThunderAI $VERSION" \
+            --notes-file release-notes.md \
+            --latest \
+            "$XPI" "$XPI.sha256" updates.json

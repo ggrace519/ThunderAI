@@ -6,11 +6,15 @@ untouched so upstream syncs merge cleanly.
 
 ## [Unreleased]
 
-### Docs
-- The testing guides now warn that removing a temporary ThunderAI in
-  `about:debugging` deletes all of its saved settings, API keys and custom
-  prompts, even when a normal copy is installed underneath (Thunderbird treats
-  it as an uninstall). Test only in a separate Thunderbird profile.
+### Added
+- **Fork releases you can install.** Each fork release is published on this
+  repository's Releases page as `thunderai-<version>.xpi`, installable with
+  "Install Add-on From File". Installed copies update themselves from those
+  releases instead of the Thunderbird add-on site, which would otherwise
+  replace the fork with upstream's build. Fork versions show in Thunderbird
+  as `<upstream>.<n>` (e.g. 5.1.1.1).
+- The README explains what the fork adds, how to install it and where to
+  report issues.
 
 ### Changed
 - Updated to upstream ThunderAI **5.1.1** (from 5.0.2). Brings the redesigned
@@ -78,6 +82,12 @@ untouched so upstream syncs merge cleanly.
   suite requires. Dev dependencies are pinned to exact versions,
   and Vitest and happy-dom were bumped to releases that fix their published
   security advisories.
+
+### Docs
+- The testing guides now warn that removing a temporary ThunderAI in
+  `about:debugging` deletes all of its saved settings, API keys and custom
+  prompts, even when a normal copy is installed underneath (Thunderbird treats
+  it as an uninstall). Test only in a separate Thunderbird profile.
 
 ## [5.0.2-fork.1] - 2026-09-26
 
