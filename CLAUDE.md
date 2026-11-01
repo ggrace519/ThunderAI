@@ -95,11 +95,12 @@ This is a fork: `origin` = `ggrace519/ThunderAI`, `upstream` = `micz/ThunderAI` 
 - Upstream syncs land as a merge (never a rebase) of `upstream/main` on a `chore/merge-upstream-<version>` branch, PR'd into `develop`.
 - Upstream's `CLAUDE.md` carries maintainer rules that do not apply here (never commit, never run the full test suite, edit only `options/mzta-release-notes.html`); they are dropped from this file on purpose — drop them again if an upstream sync brings them back.
 - Fork changes are logged in `FORK_CHANGELOG.md`. `CHANGELOG.md` is upstream's release notes and is left untouched.
-- Releases are named `<upstream version>-fork.<n>` (e.g. `5.0.2-fork.1`): the `## [Unreleased]` section of `FORK_CHANGELOG.md` is rolled into that heading before promotion, and `main` is tagged `v<that name>` after the promotion merge. `manifest.json` keeps upstream's numeric version.
+- Releases are named `<upstream version>-fork.<n>` (e.g. `5.1.1-fork.1`, tag `v5.1.1-fork.1`) and ship with manifest version `<upstream version>.<n>` (`5.1.1.1`); a plain 3-part manifest version means no fork release is prepared. Release flow, all automated (`.github/scripts/fork-release.mjs`, unit-tested in `test/fork-release.test.js`): run the **prepare-release** workflow → it rolls `FORK_CHANGELOG.md`'s `[Unreleased]` into the next fork version, sets the manifest version, and opens a PR into `develop` → merge it, then the promotion PR → **release.yml** tags `main` and publishes the GitHub release with `thunderai-<version>.xpi`, its `.sha256` and `updates.json`. A promotion without a prepared version releases nothing. Don't roll the changelog or tag by hand.
+- **Own update channel:** `manifest.json` sets `browser_specific_settings.gecko.update_url` to `https://github.com/ggrace519/ThunderAI/releases/latest/download/updates.json`, which takes fork installs off the Thunderbird add-on site's update channel (same add-on ID as upstream). Never remove it. On an upstream sync that conflicts on `"version"`, take upstream's 3-part version; the next prepare-release sets the fork part. See DECISIONS.md "Fork release channel".
 
 ## Packaging
 
-`package.ps1` (Windows) or `package.py` zips the sources into `thunderai.xpi`; `manifest.json` must sit at the ZIP root. See `PACKAGING.md`.
+`package.ps1` (Windows) or `package.py` zips the sources into `thunderai.xpi`; `manifest.json` must sit at the ZIP root. See `PACKAGING.md`. The release workflow builds the published XPI with `package.py`.
 
 ## Spec Files
 

@@ -6,6 +6,16 @@ untouched so upstream syncs merge cleanly.
 
 ## [Unreleased]
 
+### Added
+- **Fork releases you can install.** Each fork release is published on this
+  repository's Releases page as `thunderai-<version>.xpi`, installable with
+  "Install Add-on From File". Installed copies update themselves from those
+  releases instead of the Thunderbird add-on site, which would otherwise
+  replace the fork with upstream's build. Fork versions show in Thunderbird
+  as `<upstream>.<n>` (e.g. 5.1.1.1).
+- The README explains what the fork adds, how to install it and where to
+  report issues.
+
 ### Changed
 - Updated to upstream ThunderAI **5.1.1** (from 5.0.2). Brings the redesigned
   Custom Prompts page, Thunderbird Enterprise Policies, settings stored in

@@ -63,3 +63,44 @@ guard-on paths upstream covers), and leaving the failures visible (hides new reg
   change and re-applying the marked fork line (`grep -rn 'fork:' tests/`).
 - Two runners and two DOM libraries (jsdom, happy-dom) in dev tooling; neither ships (both
   packaging scripts exclude `test/` and `tests/`).
+
+---
+
+## ADR - Fork release channel (2026-11-01)
+
+**Date:** 2026-11-01
+**Status:** Accepted
+**Phase:** Release automation
+
+### Context
+The fork had never published a release, and it reuses upstream's add-on ID (`thunderai@micz.it`).
+Thunderbird picks an add-on's update URL from an enterprise policy, else the add-on's own
+`browser_specific_settings.gecko.update_url`, else the Thunderbird add-on site's version check
+(verified in Thunderbird 159's `XPIInstall.sys.mjs`). So a fork XPI installed from a file would be
+silently replaced by upstream's next release from the add-on site. Thunderbird does not require
+Mozilla's signature for file installs (`xpinstall.signatures.required = false`), so a self-built XPI
+can be distributed directly.
+
+### Decision
+- **Own update channel.** `manifest.json` sets `update_url` to
+  `https://github.com/ggrace519/ThunderAI/releases/latest/download/updates.json`; every release
+  uploads an `updates.json` pointing at its XPI with a `sha256:` hash.
+- **Version scheme.** Fork release `<upstream>-fork.<n>` (tag `v<upstream>-fork.<n>`) ships with
+  manifest version `<upstream>.<n>`, which orders between upstream releases (`5.1.1 < 5.1.1.1 < 5.1.2`).
+  A plain 3-part version means no fork release is prepared. The code only checks
+  `previousVersion` prefixes, so a 4-part version is safe.
+- **Automation.** `prepare-release.yml` (manual) rolls `FORK_CHANGELOG.md` and sets the manifest
+  version in a PR into `develop`; `release.yml` runs on every `main` push and, when the manifest
+  carries an untagged fork version, tags `main` and publishes the release. Tagging and releasing are
+  one workflow because a tag pushed with `GITHUB_TOKEN` starts no other workflow. The logic is in
+  `.github/scripts/fork-release.mjs`, unit-tested in `test/fork-release.test.js`.
+- Releases are published, not drafts: merging the promotion PR is the maintainer's approval.
+
+Rejected: telling users to turn off automatic updates. It leaves them on manual updates, and one
+missed step brings back upstream's build without the fork's features.
+
+### Consequences
+- Installed copies keep using the `update_url` of the installed version, so it must not move. If it
+  ever has to, only an enterprise policy (`ExtensionSettings.update_url`) can redirect old installs.
+- Every upstream sync conflicts on the manifest `"version"` line; take upstream's 3-part version.
+- `[5.0.2-fork.1]` in `FORK_CHANGELOG.md` stays a historical heading: it never reached `main`.
