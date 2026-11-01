@@ -63,5 +63,19 @@ var i18n = {
       if (options.keyPrefix) this.keyPrefix = options.keyPrefix;
     }
     this.updateSubtree(document);
+
+    // a11y (ThunderAI local enhancement): declare the document language so
+    // assistive technologies announce content in the right language. Reflects
+    // the actual UI locale and never overrides a lang already set in the page.
+    try {
+      const i18nApi = globalThis.messenger?.i18n || globalThis.browser?.i18n;
+      const uiLang = i18nApi?.getUILanguage?.();
+      const docEl = document.documentElement;
+      if (uiLang && docEl && !docEl.getAttribute("lang")) {
+        docEl.setAttribute("lang", uiLang);
+      }
+    } catch (e) {
+      // non-fatal: language declaration is a progressive enhancement
+    }
   },
 };

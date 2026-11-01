@@ -1,0 +1,21 @@
+# The fork's CI. Named CI (not Tests) so promote.yml's workflow_run trigger is unambiguous:
+# upstream's label-triggered .github/workflows/tests.yml is also named Tests.
+name: CI
+
+on:
+  push:
+    # develop too: promote.yml runs after CI succeeds on a develop push.
+    branches: [main, develop]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm test

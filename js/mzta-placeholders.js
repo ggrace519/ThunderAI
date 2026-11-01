@@ -16,7 +16,6 @@
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-import { prefs_default } from '../options/mzta-options-default.js';
 import {
     getMailHeader,
     sanitizeMailHeaders,
@@ -55,9 +54,12 @@ import {
 
 import {
     transformTagsLabels,
+    getTagsList,
     getCurrentIdentity,
+    getMailFullSource,
     normalizePlainTextPart
 } from './mzta-utils.js';
+import { mztaPrefs } from './mzta-prefs.js';
 
 const defaultPlaceholders = [
     {
@@ -74,6 +76,15 @@ const defaultPlaceholders = [
         name: "__MSG_placeholder_mail_html_body__",
         default_value: "",
         type: 0,
+        is_default: "1",
+        is_dynamic: "0",
+        enabled: 1,
+    },
+    {
+        id: 'mail_raw_source',
+        name: "__MSG_placeholder_mail_raw_source__",
+        default_value: "",
+        type: 1,
         is_default: "1",
         is_dynamic: "0",
         enabled: 1,
@@ -389,7 +400,13 @@ export async function prepareCustomDataPHsForImport(placeholders){
     // console.log(">>>>>>>>>>> prepareCustomDataPHsForImport prompts: " + JSON.stringify(prompts));
     const output = await getCustomPlaceholders();
     // console.log(">>>>>>>>>>> prepareCustomDataPHsForImport output: " + JSON.stringify(output));
-    placeholders.forEach(placeholder => {
+    placeholders.forEach(imported => {
+        // An entry with no usable id cannot be listed or saved.
+        if(typeof imported?.id !== 'string' || imported.id.trim() === '') return;
+        // Stored ids always carry the thunderai_custom_ prefix: give it to the imported id BEFORE
+        // the match, or a file written by hand with "sig" would add a second thunderai_custom_sig
+        // next to the existing one instead of updating it (setCustomPlaceholders() prefixes both).
+        const placeholder = { ...imported, id: placeholdersUtils.validateCustomDataPH_ID(imported.id.trim()) };
         if(output.some(p => p.id == placeholder.id)){
             Object.keys(placeholder).forEach(key => {
                output.find(p => p.id == placeholder.id)[key] = placeholder[key];
@@ -470,9 +487,20 @@ export const placeholdersUtils = {
      *             ones there (a known quirk, left as is) -- but replicating that
      *             strictness here would flag perfectly valid text as an error.
      */
+    /*
+     *  The canonical key of a token's inner text: trimmed, and with the spaces around the first
+     *  colon removed, so {% id : value %}, {%id: value%} and {%id:value%} are the same token.
+     *  Used by every function that matches a token (findPlaceholder, replacePlaceholders - for
+     *  the token and for the keys of the values it is handed -, hasPlaceholder, the
+     *  additional_text field list), so the editor and the runtime always agree.
+     */
+    normalizeTokenKey(inner) {
+        return String(inner ?? '').trim().replace(/^([^:]*?)\s*:\s*/, '$1:');
+    },
+
     findPlaceholder(inner, activePHs, type = null) {
         if (!inner || !Array.isArray(activePHs)) return null;
-        const id = String(inner).trim();
+        const id = placeholdersUtils.normalizeTokenKey(inner);
         const found = activePHs.find(ph => ph.id === id
             || (ph.is_dynamic == 1 && id.startsWith(ph.id + ':')));
         if (!found) return null;
@@ -531,26 +559,45 @@ export const placeholdersUtils = {
             skip_additional_text = false
         } = args || {};
         // console.log(">>>>>>>>>> replacePlaceholders replacements: " + JSON.stringify(replacements));
+        // The values keyed like the tokens: a caller may key one by the token as written
+        // ("additional_text: tone", the chat window's late fill).
+        const subs = {};
+        for (const [key, value] of Object.entries(replacements || {})) {
+            subs[placeholdersUtils.normalizeTokenKey(key)] = value;
+        }
         // Regular expression to match patterns like {%...%}
         return text.replace(/{%\s*(.*?)\s*%}/g, function(match, p1) {
             // console.log(">>>>>>>>>> replacePlaceholders match: " + JSON.stringify(match));
             // console.log(">>>>>>>>>> replacePlaceholders p1: " + JSON.stringify(p1));
             // p1 contains the key inside {% %}
-            if (skip_additional_text && ((p1 === 'additional_text') || (p1.startsWith('additional_text:')))) {
+            const key = placeholdersUtils.normalizeTokenKey(p1);
+            if (skip_additional_text && ((key === 'additional_text') || (key.startsWith('additional_text:')))) {
                 return match;
             }
-            const currPlaceholder = defaultPlaceholders.find(ph => (ph.id === p1) || (ph.is_dynamic == 1 && p1.startsWith(ph.id + ':')));
+            const currPlaceholder = defaultPlaceholders.find(ph => (ph.id === key) || (ph.is_dynamic == 1 && key.startsWith(ph.id + ':')));
             // console.log(">>>>>>>>>> replacePlaceholders currPlaceholder: " + JSON.stringify(currPlaceholder));
             if (!currPlaceholder) {
                 return match;
             }
+            // {%empty%} exists to resolve to nothing, so it is never left as the literal token -
+            // which the || chain below would do with an empty value and the default values off.
+            if (currPlaceholder.id === 'empty') {
+                return '';
+            }
+            // An answer the user gave to an additional_text field is used as it is, an empty one
+            // included: the user saw the field and left it blank, which means "nothing here".
+            if (currPlaceholder.id === 'additional_text' && Object.prototype.hasOwnProperty.call(subs, key)) {
+                return String(subs[key] ?? '');
+            }
             // Replace if found, otherwise keep the original or substitute with default value
-            return replacements[p1] || replacements[currPlaceholder.id] || (use_default_value ? currPlaceholder.default_value : match);
+            return subs[key] || subs[currPlaceholder.id] || (use_default_value ? currPlaceholder.default_value : match);
         });
     },
 
     async replaceCustomPlaceholders(text) {
-        let customPlaceholders = await getCustomPlaceholders(true);
+        // Only the enabled ones, by the same rule as getPlaceholders(true): a disabled custom
+        // placeholder is left as it is, like one that does not exist (the editor flags it so).
+        let customPlaceholders = (await getCustomPlaceholders()).filter(ph => ph.enabled != 0);
         // Regular expression to match patterns like {%thunderai_custom_...%}
         return text.replace(/{%\s*thunderai_custom_(.*?)\s*%}/g, function(match, p1) {
           // p1 contains the key inside {% %}
@@ -572,7 +619,9 @@ export const placeholdersUtils = {
           // eaten and the pattern would read {%s*<id> — matching {%id%} only by
           // accident (zero "s") and missing the spaced form {% id %} entirely,
           // which replacePlaceholders() does accept.
-          regex = new RegExp(`{%\\s*${placeholder}(:.*?)?\\s*%}`);
+          // (\\s*:...)? and not (:...)?: spaces around the colon are the same token
+          // (normalizeTokenKey()).
+          regex = new RegExp(`{%\\s*${placeholder}(\\s*:.*?)?\\s*%}`);
         } else {
           // Otherwise, we search for any placeholder in the format {% ... %}
           regex = /{%\s*(.*?)\s*%}/;
@@ -600,7 +649,8 @@ export const placeholdersUtils = {
     },
 
     getPlaceholdersAdditionalTextArray(prompt_text){
-        const regex = /{%\s*additional_text(?::(.*?))?\s*%}/g;
+        // A space before the colon is the same token (normalizeTokenKey()).
+        const regex = /{%\s*additional_text(?:\s*:(.*?))?\s*%}/g;
         let matches = [];
         let match;
         let foundIds = new Set();
@@ -628,9 +678,29 @@ export const placeholdersUtils = {
             only_quoted_text = "",
             selection_text = "",
             selection_html = "",
-            tags_full_list = ["", []]
+            tags_full_list = ["", []],
+            dont_send_body = false
         } = args || {};
         let currPHs = await placeholdersUtils.extractPlaceholders(prompt_text);
+        // The [names, {key: tag}] pair of getTagsList(). When the caller does not supply it
+        // (e.g. translation, compose) it is read here, once, and only when a tag placeholder is
+        // actually in the prompt.
+        let tagsPair = null;
+        const tagsList = async () => {
+            if (tagsPair) return tagsPair;
+            const supplied = Array.isArray(tags_full_list) && tags_full_list[1]
+                && typeof tags_full_list[1] === 'object' && !Array.isArray(tags_full_list[1]);
+            if (supplied) {
+                tagsPair = tags_full_list;
+            } else {
+                try {
+                    tagsPair = await getTagsList();
+                } catch (e) {
+                    tagsPair = ['', {}];
+                }
+            }
+            return tagsPair;
+        };
         // console.log(">>>>>>>>>> currPHs: " + JSON.stringify(currPHs));
         // console.log(">>>>>>>>>> curr_message: " + JSON.stringify(curr_message));
         let finalSubs = {};
@@ -642,6 +712,37 @@ export const placeholdersUtils = {
                     break;
                 case 'mail_html_body':
                     finalSubs['mail_html_body'] = placeholdersUtils.failSafePlaceholders(msg_text?.html);
+                    break;
+                case 'mail_raw_source':
+                    // Full source for safety/phishing checks: complete headers
+                    // (Received chain, SPF/DKIM, Reply-To) + decoded text/HTML body
+                    // + attachment metadata, but WITHOUT the base64 attachment
+                    // payloads that would blow past max_prompt_length.
+                    let raw_source = '';
+                    try {
+                        if(curr_message && curr_message.id != null){
+                            // When the prompt opts out of a separate rendered
+                            // body, append the decoded body inline after the raw
+                            // headers (one clean representation) AND compact it:
+                            // trim headers to the security allow-list and strip
+                            // the HTML body's styling noise to cap token cost
+                            // without losing analyzable context. Otherwise use
+                            // the labelled lean view (headers + "--- body ---" +
+                            // attachment list).
+                            raw_source = await getMailFullSource(curr_message.id, { inlineBody: dont_send_body, clean: dont_send_body });
+                        }
+                    } catch (e) {
+                        // Unavailable when composing or if the message has no id;
+                        // degrade gracefully rather than failing the prompt.
+                    }
+                    // Last-resort fallback: if the message APIs returned nothing,
+                    // use the body we already have from the content script so the
+                    // placeholder is never left unsubstituted (it would otherwise
+                    // leak the literal {%mail_raw_source%} into the prompt).
+                    if(!raw_source || raw_source.trim() === ''){
+                        raw_source = msg_text?.html || body_text || '';
+                    }
+                    finalSubs['mail_raw_source'] = placeholdersUtils.failSafePlaceholders(raw_source);
                     break;
                 case 'mail_plain_text_part':
                     // The original text/plain part, NOT the HTML conversion that feeds
@@ -684,11 +785,12 @@ export const placeholdersUtils = {
                 case 'selected_html':
                     finalSubs['selected_html'] = placeholdersUtils.failSafePlaceholders(selection_html);
                     break;
+                // dont_send_body keeps the selection but drops the body fallback.
                 case 'mail_text_body_or_selected':
-                    finalSubs['mail_text_body_or_selected'] = placeholdersUtils.failSafePlaceholders(selection_text || body_text);
+                    finalSubs['mail_text_body_or_selected'] = placeholdersUtils.failSafePlaceholders(selection_text || (dont_send_body ? '' : body_text));
                     break;
                 case 'mail_html_body_or_selected':
-                    finalSubs['mail_html_body_or_selected'] = placeholdersUtils.failSafePlaceholders(selection_html || msg_text?.html);
+                    finalSubs['mail_html_body_or_selected'] = placeholdersUtils.failSafePlaceholders(selection_html || (dont_send_body ? '' : msg_text?.html));
                     break;
                 case 'author':
                     finalSubs['author'] = placeholdersUtils.failSafePlaceholders(sanitizeMailHeaders(curr_message.author));
@@ -715,26 +817,32 @@ export const placeholdersUtils = {
                     finalSubs['account_email_address'] = placeholdersUtils.failSafePlaceholders(current_identity.email);
                     break;
                 case 'tags_current_email':
-                    let tags_current_email_array = await transformTagsLabels(curr_message.tags, tags_full_list[1]);
+                    // A ComposeDetails has no tags: nothing to name, and no list to read.
+                    let tags_current_email_array = Array.isArray(curr_message.tags) && curr_message.tags.length > 0
+                        ? await transformTagsLabels(curr_message.tags, (await tagsList())[1])
+                        : [];
                     finalSubs['tags_current_email'] = placeholdersUtils.failSafePlaceholders(tags_current_email_array.join(", "));
                     break;
                 case 'tags_full_list':
-                    finalSubs['tags_full_list'] = placeholdersUtils.failSafePlaceholders(tags_full_list[0]);
+                    finalSubs['tags_full_list'] = placeholdersUtils.failSafePlaceholders((await tagsList())[0]);
                     break;
                 case 'thunderai_def_sign':
-                    let prefs_def_sign = await browser.storage.sync.get({ default_sign_name: prefs_default.default_sign_name });
+                    let prefs_def_sign = await mztaPrefs.getPrefs(['default_sign_name']);
                     finalSubs['thunderai_def_sign'] = placeholdersUtils.failSafePlaceholders(prefs_def_sign.default_sign_name);
                     break;
                 case 'thunderai_def_lang':
-                    let prefs_def_lang = await browser.storage.sync.get({ default_chatgpt_lang: prefs_default.default_chatgpt_lang });
+                    let prefs_def_lang = await mztaPrefs.getPrefs(['default_chatgpt_lang']);
                     finalSubs['thunderai_def_lang'] = placeholdersUtils.failSafePlaceholders(prefs_def_lang.default_chatgpt_lang);
                     break;
                 case 'thunderai_translate_lang':
-                    let prefs_translate_lang = await browser.storage.sync.get({ translate_lang: prefs_default.translate_lang });
-                    finalSubs['thunderai_translate_lang'] = placeholdersUtils.failSafePlaceholders(prefs_translate_lang.translate_lang);
+                    // The target language falls back on default_chatgpt_lang, as the background
+                    // does when it decides whether to translate at all: otherwise an empty
+                    // translate_lang would send the literal token to the AI.
+                    let prefs_translate_lang = await mztaPrefs.getPrefs(['translate_lang', 'default_chatgpt_lang']);
+                    finalSubs['thunderai_translate_lang'] = placeholdersUtils.failSafePlaceholders(prefs_translate_lang.translate_lang || prefs_translate_lang.default_chatgpt_lang);
                     break;
                 case 'thunderai_translate_exclude_lang':
-                    let prefs_translate_exclude_lang = await browser.storage.sync.get({ translate_exclude_lang: prefs_default.translate_exclude_lang });
+                    let prefs_translate_exclude_lang = await mztaPrefs.getPrefs(['translate_exclude_lang']);
                     finalSubs['thunderai_translate_exclude_lang'] = placeholdersUtils.failSafePlaceholders(prefs_translate_exclude_lang.translate_exclude_lang);
                     break;
                 case 'mail_attachments_info':

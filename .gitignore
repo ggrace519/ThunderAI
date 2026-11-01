@@ -28,3 +28,10 @@ coverage
 dist
 
 .claude
+
+# Build artifact produced by package.ps1
+thunderai.xpi
+*.xpi
+
+# OS cruft
+Thumbs.db
