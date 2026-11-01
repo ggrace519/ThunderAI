@@ -8,6 +8,7 @@ import {
   toManifest,
   nextForkNumber,
   rollChangelog,
+  hasUnreleasedEntries,
   releaseNotes,
   updatesJson,
   assetLink,
@@ -64,6 +65,15 @@ describe('nextForkNumber', () => {
 
   it('ignores tags that only look similar', () => {
     expect(nextForkNumber('5.1.1', ['v5.1.1', 'v5.1.10-fork.4', 'v5.1.1-fork.x'])).toBe(1);
+  });
+});
+
+describe('hasUnreleasedEntries', () => {
+  it('is true with at least one entry, false for headings only or no section', () => {
+    expect(hasUnreleasedEntries(CHANGELOG)).toBe(true);
+    expect(hasUnreleasedEntries(rollChangelog(CHANGELOG, '5.1.1-fork.1', '2026-11-01'))).toBe(false);
+    expect(hasUnreleasedEntries('## [Unreleased]\n\n### Added\n\n## [1.0.0-fork.1] - x\n- old')).toBe(false);
+    expect(hasUnreleasedEntries('# no sections')).toBe(false);
   });
 });
 

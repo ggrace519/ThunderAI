@@ -1,14 +1,21 @@
-# Prepares the next fork release: rolls FORK_CHANGELOG.md's [Unreleased] section into
-# <upstream>-fork.<n> and sets manifest.json to <upstream>.<n>, on a docs/release-<version>
-# branch, then opens the PR into develop. Merging it and the promotion that follows makes
-# release.yml tag main and publish the release. See DECISIONS.md "Fork release channel".
+# Keeps a release PR ready: whenever CI passes on a develop push and FORK_CHANGELOG.md's
+# [Unreleased] section has entries, it rolls them into the next fork version
+# (<upstream>-fork.<n>), sets manifest.json to <upstream>.<n>, and opens - or refreshes - the
+# docs/release-<version> PR into develop. Merging that PR and then the promotion PR makes
+# release.yml tag main and publish the release. No command to run: the maintainer only merges.
+# Skipped when [Unreleased] is empty, or when a prepared version is still waiting for its
+# promotion (its tag does not exist yet). See DECISIONS.md "Fork release channel".
 #
 # The commit is made through the GitHub API (ghcommit-action), so it shows as Verified.
-# A PR opened with GITHUB_TOKEN gets its CI run held for approval; CI runs again on the
-# develop push after the merge.
+# GitHub does not start workflows for PRs opened with GITHUB_TOKEN, so the release PR shows no
+# checks; CI runs on the develop push after the merge and on the promotion PR.
 name: prepare-release
 
 on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [develop]
   workflow_dispatch:
 
 permissions:
@@ -21,7 +28,11 @@ concurrency:
 
 jobs:
   prepare:
-    if: github.repository == 'ggrace519/ThunderAI'
+    if: >-
+      github.repository == 'ggrace519/ThunderAI' &&
+      (github.event_name == 'workflow_dispatch' ||
+       (github.event.workflow_run.conclusion == 'success' &&
+        github.event.workflow_run.event == 'push'))
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -34,19 +45,40 @@ jobs:
         with:
           node-version: 24
 
+      - name: Decide
+        id: pending
+        run: node .github/scripts/fork-release.mjs pending
+
+      - name: Skipped
+        if: steps.pending.outputs.action == 'skip'
+        env:
+          REASON: ${{ steps.pending.outputs.reason }}
+        run: |
+          echo "::notice::No release PR - $REASON"
+
       - name: Roll the changelog and set the manifest version
         id: prep
+        if: steps.pending.outputs.action == 'prepare'
         run: node .github/scripts/fork-release.mjs prepare "$(date -u +%F)"
 
-      - name: Create the release branch
+      # The branch is reset to the current develop on every run, so an open release PR always
+      # carries every entry merged so far.
+      - name: Create or reset the release branch
+        if: steps.pending.outputs.action == 'prepare'
         env:
           GH_TOKEN: ${{ github.token }}
           BRANCH: ${{ steps.prep.outputs.branch }}
         run: |
           set -euo pipefail
-          gh api "repos/$GITHUB_REPOSITORY/git/refs" -f "ref=refs/heads/$BRANCH" -f "sha=$(git rev-parse HEAD)"
+          SHA=$(git rev-parse HEAD)
+          if gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/$BRANCH" > /dev/null 2>&1; then
+            gh api -X PATCH "repos/$GITHUB_REPOSITORY/git/refs/heads/$BRANCH" -f "sha=$SHA" -F force=true > /dev/null
+          else
+            gh api "repos/$GITHUB_REPOSITORY/git/refs" -f "ref=refs/heads/$BRANCH" -f "sha=$SHA" > /dev/null
+          fi
 
       - name: Commit
+        if: steps.pending.outputs.action == 'prepare'
         uses: planetscale/ghcommit-action@a6b150b81dca5dd027baa898604418eec9e11465 # v0.2.22
         with:
           commit_message: "docs(release): roll fork changelog into ${{ steps.prep.outputs.version }}"
@@ -56,7 +88,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
 
-      - name: Open the pull request
+      - name: Open the pull request, or leave the refreshed one open
+        if: steps.pending.outputs.action == 'prepare'
         env:
           GH_TOKEN: ${{ github.token }}
           BRANCH: ${{ steps.prep.outputs.branch }}
@@ -65,10 +98,15 @@ jobs:
           MANIFEST_VERSION: ${{ steps.prep.outputs.manifest_version }}
         run: |
           set -euo pipefail
+          OPEN=$(gh pr list --head "$BRANCH" --base develop --state open --json number --jq '.[0].number // empty')
+          if [ -n "$OPEN" ]; then
+            echo "::notice::Refreshed release PR #$OPEN with the current develop"
+            exit 0
+          fi
           gh pr create --base develop --head "$BRANCH" \
             --title "docs(release): roll fork changelog into $VERSION" \
             --body "Prepares fork release **$VERSION**: FORK_CHANGELOG.md's [Unreleased] section becomes \`[$VERSION]\`, and manifest.json goes to \`$MANIFEST_VERSION\`.
 
-          After this merges, the promotion PR picks it up. Merging the promotion makes \`release.yml\` tag \`main\` as \`$TAG\` and publish the release with the XPI and the update manifest.
+          Merge it when you want this release. The promotion PR then picks it up; merging the promotion makes \`release.yml\` tag \`main\` as \`$TAG\` and publish the release with the XPI and the update manifest. Until then this PR is refreshed on every develop push.
 
           Opened by the prepare-release workflow."
