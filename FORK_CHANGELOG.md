@@ -15,6 +15,9 @@ untouched so upstream syncs merge cleanly.
   releases instead of the Thunderbird add-on site, which would otherwise
   replace the fork with upstream's build. Fork versions show in Thunderbird
   as `<upstream>.<n>` (e.g. 5.1.1.1).
+- Preparing a release is automatic: whenever unreleased changes land on
+  `develop`, a release PR is opened (or refreshed); merging it and then the
+  promotion PR publishes the release.
 - The README explains what the fork adds, how to install it and where to
   report issues.
 

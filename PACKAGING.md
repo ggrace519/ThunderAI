@@ -156,7 +156,7 @@ Before distributing, verify your `.xpi` file:
 
 The version in `manifest.json` is set by the release automation, not by hand:
 a fork release `<upstream>-fork.<n>` ships as manifest version `<upstream>.<n>`
-(e.g. `5.1.1-fork.1` is `5.1.1.1`), set by the **prepare-release** workflow. A
+(e.g. `5.1.1-fork.1` is `5.1.1.1`), set by the **prepare-release** workflow's release PR. A
 plain 3-part version (upstream's) means no fork release is prepared yet, so a
 local build is a development build. See `CLAUDE.md` (Fork & branch model).
 
