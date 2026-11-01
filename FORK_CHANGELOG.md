@@ -83,6 +83,12 @@ untouched so upstream syncs merge cleanly.
   and Vitest and happy-dom were bumped to releases that fix their published
   security advisories.
 
+### Docs
+- The testing guides now warn that removing a temporary ThunderAI in
+  `about:debugging` deletes all of its saved settings, API keys and custom
+  prompts, even when a normal copy is installed underneath (Thunderbird treats
+  it as an uninstall). Test only in a separate Thunderbird profile.
+
 ## [5.0.2-fork.1] - 2026-09-26
 
 ### Changed

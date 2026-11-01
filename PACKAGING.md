@@ -88,6 +88,13 @@ zip -r thunderai.xpi . -x "*.git*" -x "*.md" -x "*.sh" -x ".github/*"
 
 ### Option A: Temporary Installation (For Development/Testing)
 
+> [!WARNING]
+> **Use a separate Thunderbird profile for temporary add-ons.** Clicking **Remove** on a temporary
+> ThunderAI in `about:debugging` counts as uninstalling the add-on ID `thunderai@micz.it`, and Thunderbird then
+> deletes **all** of its stored data (settings, API keys, custom prompts), even when a normal copy of ThunderAI is
+> installed underneath. Restarting Thunderbird instead keeps the data, but don't test on the profile you use.
+> Create a test profile with `thunderbird -P` and start it with `thunderbird -P <name> --new-instance`.
+
 1. Open Thunderbird
 2. Go to `about:debugging` (type in address bar)
 3. Click "This Thunderbird" in the left sidebar
