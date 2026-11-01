@@ -89,8 +89,10 @@ can be distributed directly.
   manifest version `<upstream>.<n>`, which orders between upstream releases (`5.1.1 < 5.1.1.1 < 5.1.2`).
   A plain 3-part version means no fork release is prepared. The code only checks
   `previousVersion` prefixes, so a 4-part version is safe.
-- **Automation.** `prepare-release.yml` (manual) rolls `FORK_CHANGELOG.md` and sets the manifest
-  version in a PR into `develop`; `release.yml` runs on every `main` push and, when the manifest
+- **Automation.** `prepare-release.yml` runs after CI passes on every `develop` push and, while
+  `[Unreleased]` has entries, keeps a release PR into `develop` open and refreshed (changelog rolled,
+  manifest version set). No command is ever needed: releasing means merging that PR, then the
+  promotion PR. `release.yml` runs on every `main` push and, when the manifest
   carries an untagged fork version, tags `main` and publishes the release. Tagging and releasing are
   one workflow because a tag pushed with `GITHUB_TOKEN` starts no other workflow. The logic is in
   `.github/scripts/fork-release.mjs`, unit-tested in `test/fork-release.test.js`.

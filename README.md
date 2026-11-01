@@ -48,9 +48,9 @@ anything that also happens in upstream's ThunderAI belongs [upstream](https://gi
   Upstream releases are merged in, never rebased.
 - `npm ci && npm test` runs upstream's suite (`tests/`, Node's test runner) and the fork's own Vitest suite
   (`test/`); CI runs both on every pull request and on pushes to `develop` and `main`. Node 22.22+ or 24.15+.
-- Releases: the **prepare-release** workflow (Actions tab) rolls `FORK_CHANGELOG.md` into the next fork version
-  and opens a PR; once it is merged and promoted to `main`, the **release** workflow tags `main` and publishes the
-  XPI with the update manifest.
+- Releases need no commands: when `develop` has unreleased changelog entries, the **prepare-release** workflow keeps
+  a release PR open (changelog rolled into the next fork version). Merging it and then the promotion PR to `main`
+  makes the **release** workflow tag `main` and publish the XPI with the update manifest.
 - `python3 package.py` builds `thunderai.xpi` locally. See [CLAUDE.md](CLAUDE.md) and [DECISIONS.md](DECISIONS.md)
   for the conventions.
 

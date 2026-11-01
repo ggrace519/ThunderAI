@@ -52,6 +52,12 @@ function sectionBody(text, heading) {
     return { lines, at, end };
 }
 
+/** True when the [Unreleased] section has at least one `- ` entry. */
+export function hasUnreleasedEntries(text) {
+    const s = sectionBody(text, UNRELEASED);
+    return !!s && s.lines.slice(s.at + 1, s.end).some(l => /^\s*- /.test(l));
+}
+
 /**
  * Move the [Unreleased] body under `## [<version>] - <isoDate>`, leaving an empty [Unreleased].
  * Throws when [Unreleased] is missing or has no entry, or the version heading already exists.
@@ -61,7 +67,7 @@ export function rollChangelog(text, version, isoDate) {
     const s = sectionBody(text, UNRELEASED);
     if (!s) throw new Error('FORK_CHANGELOG.md has no "## [Unreleased]" heading');
     const body = s.lines.slice(s.at + 1, s.end);
-    if (!body.some(l => /^\s*- /.test(l))) throw new Error('[Unreleased] has no entries: nothing to release');
+    if (!hasUnreleasedEntries(text)) throw new Error('[Unreleased] has no entries: nothing to release');
     const trimmed = body.join('\n').replace(/^\n+|\n+$/g, '');
     const out = [
         ...s.lines.slice(0, s.at),
@@ -109,6 +115,24 @@ function emit(pairs) {
 const readJson = p => JSON.parse(readFileSync(p, 'utf8'));
 const forkTags = () => execFileSync('git', ['tag', '-l', 'v*-fork.*'], { encoding: 'utf8' }).split('\n').filter(Boolean);
 
+/**
+ * pending: should prepare-release open (or refresh) a release PR for this develop commit?
+ * `prepare` when [Unreleased] has entries and no prepared fork version is waiting for release.
+ */
+function cmdPending() {
+    const manifest = readJson('manifest.json');
+    const { upstream, fork } = splitVersion(manifest.version);
+    if (fork !== null && !forkTags().includes(toTag(upstream, fork))) {
+        emit({ action: 'skip', reason: `${toTag(upstream, fork)} is prepared and waits for its promotion; new entries go into the next release` });
+        return;
+    }
+    if (!hasUnreleasedEntries(readFileSync('FORK_CHANGELOG.md', 'utf8'))) {
+        emit({ action: 'skip', reason: '[Unreleased] has no entries' });
+        return;
+    }
+    emit({ action: 'prepare' });
+}
+
 /** prepare: roll [Unreleased] into the next fork version and set the manifest version. */
 function cmdPrepare(isoDate) {
     const manifest = readJson('manifest.json');
@@ -155,10 +179,11 @@ function cmdUpdatesJson(tag, manifestVersion, xpi, sha256, minVersion, outPath) 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
     const [cmd, ...args] = process.argv.slice(2);
     try {
-        if (cmd === 'prepare') cmdPrepare(args[0] || new Date().toISOString().slice(0, 10));
+        if (cmd === 'pending') cmdPending();
+        else if (cmd === 'prepare') cmdPrepare(args[0] || new Date().toISOString().slice(0, 10));
         else if (cmd === 'release-info') cmdReleaseInfo(args[0] || 'release-notes.md');
         else if (cmd === 'updates-json') cmdUpdatesJson(...args);
-        else throw new Error('usage: fork-release.mjs prepare [date] | release-info [notes.md] | updates-json <tag> <manifestVersion> <xpi> <sha256> <minVersion> <out>');
+        else throw new Error('usage: fork-release.mjs pending | prepare [date] | release-info [notes.md] | updates-json <tag> <manifestVersion> <xpi> <sha256> <minVersion> <out>');
     } catch (e) {
         console.error(`::error::${e.message}`);
         process.exit(1);
