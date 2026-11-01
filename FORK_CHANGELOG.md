@@ -6,6 +6,8 @@ untouched so upstream syncs merge cleanly.
 
 ## [Unreleased]
 
+## [5.1.1-fork.1] - 2026-11-01
+
 ### Added
 - **Fork releases you can install.** Each fork release is published on this
   repository's Releases page as `thunderai-<version>.xpi`, installable with
